@@ -110,19 +110,32 @@
               </artifactSet>
               <relocations>
                 <relocation>
-                  <pattern>org.</pattern>
-                  <shadedPattern>zz.org.</shadedPattern>
-                  <excludes>
-                    <exclude>org.sonatype.nexus.blobstore.azure.**</exclude>
-                  </excludes>
+                  <pattern>org.codehaus.stax2.</pattern>
+                  <shadedPattern>zz.org.codehaus.stax2.</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>com.</pattern>
-                  <shadedPattern>zz.com.</shadedPattern>
+                  <pattern>com.ctc.wstx.</pattern>
+                  <shadedPattern>zz.com.ctc.wstx.</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>io.</pattern>
-                  <shadedPattern>zz.io.</shadedPattern>
+                  <pattern>com.microsoft.</pattern>
+                  <shadedPattern>zz.com.microsoft.</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.fasterxml.</pattern>
+                  <shadedPattern>zz.com.fasterxml.</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.netty.</pattern>
+                  <shadedPattern>zz.io.netty.</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.reactivestreams.</pattern>
+                  <shadedPattern>zz.org.reactivestreams.</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.reactivex.</pattern>
+                  <shadedPattern>zz.io.reactivex.</shadedPattern>
                 </relocation>
               </relocations>
             </configuration>
@@ -142,7 +155,9 @@
               !org.sonatype.nexus.blobstore.azure,
               com.microsoft.azure.storage.blob
             </Export-Package>
-            <Import-Package></Import-Package>
+            <Import-Package>
+              *;resolution:=optional
+            </Import-Package>
             <_versionpolicy>[$(version;==;$(@)),$(version;+;$(@)))</_versionpolicy>
             <_removeheaders>Ignore-Package,Include-Resource,Private-Package,Embed-Dependency</_removeheaders>
           </instructions>
