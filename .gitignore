@@ -1,0 +1,13 @@
+.classpath
+.project
+.settings/
+target/
+*.ipr
+*.iml
+*.iws
+.idea/
+.DS_Store
+.clover
+*.log
+*~
+src/test/resources/gce-credentials.json
