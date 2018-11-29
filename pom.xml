@@ -158,19 +158,13 @@
             <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
             <Export-Package>
               org.sonatype.nexus.blobstore.azure,
-              !org.sonatype.nexus.blobstore.azure,
               com.microsoft.azure.storage.blob
             </Export-Package>
             <Import-Package>
-              *;resolution:=optional,
-              javax.net.ssl,
-              javax.xml.stream,
-              javax.xml.namespace
+              *;resolution:=optional
             </Import-Package>
-            <_versionpolicy>[$(version;==;$(@)),$(version;+;$(@)))</_versionpolicy>
-            <_removeheaders>Ignore-Package,Include-Resource,Private-Package,Embed-Dependency</_removeheaders>
+            <DynamicImport-Package>*</DynamicImport-Package>
           </instructions>
-          <unpackBundle>true</unpackBundle>
         </configuration>
       </plugin>
 
