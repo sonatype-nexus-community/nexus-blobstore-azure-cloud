@@ -23,14 +23,14 @@
     <version>3.14.0-04</version>
   </parent>
 
-  <artifactId>nexus-blobstore-google-cloud</artifactId>
+  <artifactId>nexus-blobstore-azure-cloud</artifactId>
   <name>${project.groupId}:${project.artifactId}</name>
   <inceptionYear>2017</inceptionYear>
   <version>0.4.0-SNAPSHOT</version>
   <packaging>bundle</packaging>
 
   <properties>
-    <google-cloud.version>1.35.0</google-cloud.version>
+    <azure-storage-java.version>10.3.0</azure-storage-java.version>
   </properties>
 
   <dependencies>
@@ -56,18 +56,6 @@
       <groupId>org.sonatype.nexus</groupId>
       <artifactId>nexus-scheduling</artifactId>
       <scope>provided</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.cloud</groupId>
-      <artifactId>google-cloud-storage</artifactId>
-      <version>${google-cloud.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.cloud</groupId>
-      <artifactId>google-cloud-datastore</artifactId>
-      <version>${google-cloud.version}</version>
     </dependency>
 
     <dependency>

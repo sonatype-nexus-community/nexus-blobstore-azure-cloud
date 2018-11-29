@@ -8,7 +8,6 @@
     </encoder>
   </appender>
 
-  <logger name="com.google.api.client.http.apache" level="DEBUG" />
   <!-- <logger name="org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager" level="DEBUG" /> -->
   <logger name="org.sonatype" level="DEBUG" />
 

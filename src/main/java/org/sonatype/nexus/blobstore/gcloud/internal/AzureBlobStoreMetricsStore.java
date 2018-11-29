@@ -28,18 +28,14 @@ import org.sonatype.nexus.common.node.NodeAccess;
 import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 
-import com.google.cloud.storage.Bucket;
-import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Long.parseLong;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STARTED;
 
 @Named
-public class GoogleCloudBlobStoreMetricsStore
+public class AzureBlobStoreMetricsStore
     extends StateGuardLifecycleSupport
 {
   private static final String METRICS_SUFFIX = "-metrics";
@@ -64,12 +60,10 @@ public class GoogleCloudBlobStoreMetricsStore
 
   private PeriodicJob metricsWritingJob;
 
-  private GoogleCloudPropertiesFile propertiesFile;
-
-  private Bucket bucket;
+  private AzurePropertiesFile propertiesFile;
 
   @Inject
-  public GoogleCloudBlobStoreMetricsStore(final PeriodicJobService jobService, final NodeAccess nodeAccess) {
+  public AzureBlobStoreMetricsStore(final PeriodicJobService jobService, final NodeAccess nodeAccess) {
     this.jobService = checkNotNull(jobService);
     this.nodeAccess = checkNotNull(nodeAccess);
   }
@@ -80,7 +74,7 @@ public class GoogleCloudBlobStoreMetricsStore
     totalSize = new AtomicLong();
     dirty = new AtomicBoolean();
 
-    propertiesFile = new GoogleCloudPropertiesFile(bucket, nodeAccess.getId() + METRICS_SUFFIX + METRICS_EXTENSION);
+    propertiesFile = new AzurePropertiesFile(nodeAccess.getId() + METRICS_SUFFIX + METRICS_EXTENSION);
     if (propertiesFile.exists()) {
       log.info("Loading blob store metrics file {}", propertiesFile);
       propertiesFile.load();
@@ -121,19 +115,13 @@ public class GoogleCloudBlobStoreMetricsStore
     propertiesFile = null;
   }
 
-  public void setBucket(final Bucket bucket) {
-    checkState(this.bucket == null, "Do not initialize twice");
-    checkNotNull(bucket);
-    this.bucket = bucket;
-  }
-
   @Guarded(by = STARTED)
   public BlobStoreMetrics getMetrics() {
-    Stream<GoogleCloudPropertiesFile> blobStoreMetricsFiles = backingFiles();
+    Stream<AzurePropertiesFile> blobStoreMetricsFiles = backingFiles();
     return getCombinedMetrics(blobStoreMetricsFiles);
   }
 
-  private BlobStoreMetrics getCombinedMetrics(final Stream<GoogleCloudPropertiesFile> blobStoreMetricsFiles) {
+  private BlobStoreMetrics getCombinedMetrics(final Stream<AzurePropertiesFile> blobStoreMetricsFiles) {
     AccumulatingBlobStoreMetrics blobStoreMetrics = new AccumulatingBlobStoreMetrics(0, 0,
         ImmutableMap.of("gcp", Long.MAX_VALUE), true);
 
@@ -174,14 +162,8 @@ public class GoogleCloudBlobStoreMetricsStore
     });
   }
 
-  private Stream<GoogleCloudPropertiesFile> backingFiles() {
-    if (bucket == null) {
-      return Stream.empty();
-    } else {
-      return Streams.stream(bucket.list(BlobListOption.prefix(nodeAccess.getId())).iterateAll())
-          .filter(b -> b.getName().endsWith(METRICS_EXTENSION))
-          .map(blob -> new GoogleCloudPropertiesFile(bucket, blob.getName()));
-    }
+  private Stream<AzurePropertiesFile> backingFiles() {
+    return Stream.empty();
   }
 
   private void updateProperties() {

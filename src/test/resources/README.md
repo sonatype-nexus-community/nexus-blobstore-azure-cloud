@@ -12,17 +12,11 @@
     Eclipse Foundation. All other trademarks are the property of their respective owners.
 
 -->
-Integration Tests for Nexus Repository Manager Google Cloud Storage Blobstore
+Integration Tests for Nexus Repository Manager Azure Cloud Storage Blobstore
 ====
 
-The integration tests for Nexus Repository Manager Google Cloud Storage Blobstore interact with
-Google Cloud Storage and require credentials to be provided.
-
-The integration tests look in this folder (`src/test/resource`) for a file named `gce-credentials.json`,
-which is ignored by git. The [root README](../../../README.md) for this project describes how to
-create this file and what roles/permissions are required.
-
-See the [example file](.gce-credentials-example.json) in this directory.
+The integration tests for Nexus Repository Manager Azure Cloud Storage Blobstore interact with
+Azure Cloud Storage and require credentials to be provided.
 
 Once configured, to run the tests execute the following at the root of this project:
 

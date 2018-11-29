@@ -21,7 +21,6 @@ import java.util.Properties;
 import org.sonatype.nexus.blobstore.api.BlobAttributes;
 import org.sonatype.nexus.blobstore.api.BlobMetrics;
 
-import com.google.cloud.storage.Bucket;
 import org.joda.time.DateTime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -32,7 +31,7 @@ import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.DELETED_R
 import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.HEADER_PREFIX;
 import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.SHA1_HASH_ATTRIBUTE;
 
-public class GoogleCloudBlobAttributes
+public class AzureBlobAttributes
     implements BlobAttributes
 {
   private Map<String, String> headers;
@@ -43,17 +42,16 @@ public class GoogleCloudBlobAttributes
 
   private String deletedReason;
 
-  private final GoogleCloudPropertiesFile propertiesFile;
+  private final AzurePropertiesFile propertiesFile;
 
-  public GoogleCloudBlobAttributes(final Bucket bucket, final String key) {
+  public AzureBlobAttributes(final String key) {
     checkNotNull(key);
-    checkNotNull(bucket);
-    this.propertiesFile = new GoogleCloudPropertiesFile(bucket, key);
+    this.propertiesFile = new AzurePropertiesFile(key);
   }
 
-  public GoogleCloudBlobAttributes(final Bucket bucket, final String key, final Map<String, String> headers,
-                          final BlobMetrics metrics) {
-    this(bucket, key);
+  public AzureBlobAttributes(final String key, final Map<String, String> headers,
+                             final BlobMetrics metrics) {
+    this(key);
     this.headers = checkNotNull(headers);
     this.metrics = checkNotNull(metrics);
   }

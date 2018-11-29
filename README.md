@@ -12,13 +12,13 @@
     Eclipse Foundation. All other trademarks are the property of their respective owners.
 
 -->
-Nexus Repository Google Cloud Storage Blobstore
+Nexus Repository Azure Cloud Storage Blobstore
 ==============================
 
-[![Build Status](https://travis-ci.org/sonatype-nexus-community/nexus-blobstore-google-cloud.svg?branch=master)](https://travis-ci.org/sonatype-nexus-community/nexus-blobstore-google-cloud) [![Join the chat at https://gitter.im/sonatype/nexus-developers](https://badges.gitter.im/sonatype/nexus-developers.svg)](https://gitter.im/sonatype/nexus-developers?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Build Status](https://travis-ci.org/sonatype-nexus-community/nexus-blobstore-Azure-cloud.svg?branch=master)](https://travis-ci.org/sonatype-nexus-community/nexus-blobstore-Azure-cloud) [![Join the chat at https://gitter.im/sonatype/nexus-developers](https://badges.gitter.im/sonatype/nexus-developers.svg)](https://gitter.im/sonatype/nexus-developers?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-This project adds [Google Cloud Object Storage](https://cloud.google.com/storage/) backed blobstores to Sonatype Nexus 
-Repository 3.14 and later.  It allows Nexus Repository to store the components and assets in Google Cloud instead of a
+This project adds [Azure Cloud Object Storage](https://cloud.Azure.com/storage/) backed blobstores to Sonatype Nexus 
+Repository 3.14 and later.  It allows Nexus Repository to store the components and assets in Azure Cloud instead of a
 local filesystem.
 
 Contribution Guidelines
@@ -57,50 +57,23 @@ After you have built the project, run the provided install script
 sh ./install-plugin.sh path/to/your/nxrm3/install
 ```
 
-Google Cloud Storage Permissions
+Azure Cloud Storage Permissions
 --------------------------------
+TODO
 
-Next, you will need to create an account with appropriate [permissions](https://cloud.google.com/storage/docs/access-control/iam-roles).
-
-Of the predefined account roles, `Storage Admin` will grant the plugin to create any Google Cloud Storage Buckets you 
-require and administer all of the objects within, but it will also have access to manage any other Google Cloud Storage
-Buckets associated with the project.
-
-If you are using custom roles, the account will need:
-
-1. (required) `storage.objects.*`
-2. (required) `storage.buckets.get` 
-3. or `storage.buckets.*`.
-
-If you only provide permissions 1 and 2, you will have to create any Google Cloud Storage Buckets in advance of assigning
-them to Nexus Repository Manager blob stores. The third option will allow the plugin to create buckets for you.
-
-If you are creating the Google Cloud Storage Buckets in advance, you should use either the 'Multi-Regional' or 'Regional'
-[storage class](https://cloud.google.com/storage/sla); 'Nearline' and 'Coldline' are not suitable for Nexus Repository Manager workloads.
-If you let the plugin create the bucket, it will use the 'Multi-Regional' storage class.
-
-Google Cloud Storage Authentication
+Azure Cloud Storage Authentication
 -----------------------------------
+TODO
 
-Per the [Google Cloud documentation](https://github.com/GoogleCloudPlatform/google-cloud-java#authentication):
+Per the [Azure Cloud documentation](https://...):
 
-1. [Generate a JSON Service Account key](https://cloud.google.com/storage/docs/authentication?hl=en#service_accounts) 
-2. Store this file on the filesystem with appropriate permissions for the user running Nexus to read it.
-3. (optional, but recommended) Set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable for the user running Nexus:
-
-```
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/my/key.json
-
-```
 
 Configuration
 -------------
 
 A restart of Nexus Repository Manager is required to complete the installation process.
 
-Log in as admin and create a new blobstore, selecting 'Google Cloud Storage' as the type.
-
-If you did not set the environment variable in Step 3 above, specify the absolute path to the JSON Service Account key file.
+Log in as admin and create a new blobstore, selecting 'Azure Cloud Storage' as the type.
 
 The Fine Print
 --------------
@@ -111,7 +84,7 @@ to the open source community (read: you!)
 Remember:
 
 * Use this contribution at the risk tolerance that you have
-* Do NOT file Sonatype support tickets related to Google Cloud support
+* Do NOT file Sonatype support tickets related to Azure Cloud support
 * DO file issues here on GitHub, so that the community can pitch in
 
 Phew, that was easier than I thought. Last but not least of all:

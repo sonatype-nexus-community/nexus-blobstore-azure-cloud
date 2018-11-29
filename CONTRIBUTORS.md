@@ -16,8 +16,8 @@ A lot of awesome people have contributed to this project! Here they are:
 
 Sonatype internal people:
 
-* [@nblair](https://github.com/nblair/) (Nicholas Blair)
-* [@mcculls](https://github.com/mcculls/) (Stuart McCulloch)
+* [@ataylor284](https://github.com/ataylor284/) (Andrew Taylor)
+* [@mattjohnson](https://github.com/mattjohnson/) (Matt Johnson)
 
 External contributors:
 
