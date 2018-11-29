@@ -156,7 +156,10 @@
               com.microsoft.azure.storage.blob
             </Export-Package>
             <Import-Package>
-              *;resolution:=optional
+              *;resolution:=optional,
+              javax.net.ssl,
+              javax.xml.stream,
+              javax.xml.namespace
             </Import-Package>
             <_versionpolicy>[$(version;==;$(@)),$(version;+;$(@)))</_versionpolicy>
             <_removeheaders>Ignore-Package,Include-Resource,Private-Package,Embed-Dependency</_removeheaders>
