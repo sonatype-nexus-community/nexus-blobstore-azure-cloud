@@ -17,11 +17,12 @@ import com.microsoft.azure.storage.blob.models.BlobItem;
 import com.microsoft.azure.storage.blob.models.ContainerListBlobFlatSegmentResponse;
 import io.reactivex.Flowable;
 import io.reactivex.Observable;
+import io.reactivex.functions.Predicate;
 import org.apache.commons.io.IOUtils;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.microsoft.rest.v2.util.FlowableUtil.collectBytesInBuffer;
-import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.BLOB_ATTRIBUTE_SUFFIX;
+import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.BLOB_CONTENT_SUFFIX;
 
 public class AzureClient
 {
@@ -75,20 +76,18 @@ public class AzureClient
     containerURL.createBlockBlobURL(destination).startCopyFromURL(sourceBlob.toURL()).blockingGet();
   }
 
-  public Stream<String> listBlobs(final String contentPrefix) {
+  public Observable<String> listBlobs(final String contentPrefix, final Predicate<BlobItem> blobSuffixFilter) {
+    Predicate<BlobItem> filter = b -> true;
+    filter = blobSuffixFilter != null ? blobSuffixFilter : filter;
     Builder<String> builder = Stream.builder();
 
     ListBlobsOptions listBlobsOptions = new ListBlobsOptions().withPrefix(contentPrefix).withMaxResults(5);
     Observable<BlobItem> itemObservable = containerURL
         .listBlobsFlatSegment(null, listBlobsOptions)
         .flatMapObservable(r -> listContainersResultToContainerObservable(containerURL, listBlobsOptions, r));
-    Observable<String> map = itemObservable
-        .filter(blobItem -> blobItem.name().endsWith(BLOB_ATTRIBUTE_SUFFIX))
-        .map(blobItem -> blobItem.name().substring(0, blobItem.name().length() - BLOB_ATTRIBUTE_SUFFIX.length()));
-
-    map.subscribe(builder::add);
-
-    return builder.build();
+    return itemObservable
+        .filter(filter)
+        .map(blobItem -> blobItem.name().substring(0, blobItem.name().length() - BLOB_CONTENT_SUFFIX.length()));
   }
 
   private static Observable<BlobItem> listContainersResultToContainerObservable(

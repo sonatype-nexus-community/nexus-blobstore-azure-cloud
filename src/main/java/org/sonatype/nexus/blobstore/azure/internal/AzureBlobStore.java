@@ -19,8 +19,11 @@ import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -46,6 +49,7 @@ import org.sonatype.nexus.common.stateguard.Guarded;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.hash.HashCode;
+import io.reactivex.Observable;
 import org.joda.time.DateTime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -400,13 +404,23 @@ public class AzureBlobStore
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getBlobIdStream() {
-    return azureClient.listBlobs(CONTENT_PREFIX).map(BlobId::new);
+    Observable<BlobId> map = azureClient
+        .listBlobs(CONTENT_PREFIX, blobItem -> blobItem.name().endsWith(BLOB_ATTRIBUTE_SUFFIX)).map(BlobId::new);
+    return toStream(map);
+  }
+
+  private Stream<BlobId> toStream(final Observable<BlobId> map) {
+    return StreamSupport.stream(
+        Spliterators.spliteratorUnknownSize(map.blockingIterable().iterator(), Spliterator.ORDERED),
+        false);
   }
 
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getDirectPathBlobIdStream(final String prefix) {
-    return azureClient.listBlobs(DIRECT_PATH_PREFIX).map(BlobId::new);
+    Observable<BlobId> map = azureClient
+        .listBlobs(DIRECT_PATH_PREFIX, blobItem -> blobItem.name().endsWith(BLOB_ATTRIBUTE_SUFFIX)).map(BlobId::new);
+    return toStream(map);
   }
 
   /**
