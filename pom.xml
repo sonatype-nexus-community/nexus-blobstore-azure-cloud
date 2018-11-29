@@ -113,7 +113,7 @@
                   <pattern>org.</pattern>
                   <shadedPattern>zz.org.</shadedPattern>
                   <excludes>
-                    <exclude>org.sonatype.nexus.blobstore.gcloud.**</exclude>
+                    <exclude>org.sonatype.nexus.blobstore.azure.**</exclude>
                   </excludes>
                 </relocation>
                 <relocation>
@@ -138,8 +138,8 @@
           <instructions>
             <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
             <Export-Package>
-              org.sonatype.nexus.blobstore.gcloud,
-              !org.sonatype.nexus.blobstore.gcloud,
+              org.sonatype.nexus.blobstore.azure,
+              !org.sonatype.nexus.blobstore.azure,
               com.microsoft.azure.storage.blob
             </Export-Package>
             <Import-Package></Import-Package>
