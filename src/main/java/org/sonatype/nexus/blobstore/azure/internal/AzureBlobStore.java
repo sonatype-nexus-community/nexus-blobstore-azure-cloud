@@ -14,9 +14,12 @@ package org.sonatype.nexus.blobstore.azure.internal;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.nio.file.Path;
+import java.security.InvalidKeyException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
@@ -24,6 +27,8 @@ import javax.inject.Inject;
 import javax.inject.Named;
 
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
+import org.sonatype.nexus.blobstore.BlobStoreSupport;
+import org.sonatype.nexus.blobstore.BlobSupport;
 import org.sonatype.nexus.blobstore.api.Blob;
 import org.sonatype.nexus.blobstore.api.BlobAttributes;
 import org.sonatype.nexus.blobstore.api.BlobId;
@@ -34,12 +39,13 @@ import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
 import org.sonatype.nexus.common.log.DryRunPrefix;
 import org.sonatype.nexus.common.stateguard.Guarded;
-import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.LoadingCache;
 import com.google.common.hash.HashCode;
-import com.microsoft.azure.storage.blob.SharedKeyCredentials;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.cache.CacheLoader.from;
 import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.HEADER_PREFIX;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.NEW;
@@ -51,16 +57,17 @@ import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.St
  */
 @Named(AzureBlobStore.TYPE)
 public class AzureBlobStore
-    extends StateGuardLifecycleSupport
-    implements BlobStore
+    extends BlobStoreSupport
 {
   public static final String TYPE = "Azure Cloud Storage";
 
   public static final String CONFIG_KEY = TYPE.toLowerCase();
 
-  public static final String BUCKET_KEY = "bucket";
+  public static final String ACCOUNT_NAME_KEY = "account_name";
 
-  public static final String CREDENTIAL_FILE_KEY = "credential_file";
+  public static final String ACCOUNT_KEY_KEY = "account_key";
+
+  public static final String CONTAINER_NAME_KEY = "container_name";
 
   public static final String BLOB_CONTENT_SUFFIX = ".bytes";
 
@@ -68,18 +75,26 @@ public class AzureBlobStore
 
   static final String CONTENT_PREFIX = "content";
 
+  private AzureStorageClientFactory azureStorageClientFactory;
+
   private final BlobIdLocationResolver blobIdLocationResolver;
 
   private final AzureBlobStoreMetricsStore metricsStore;
 
-  private BlobStoreConfiguration blobStoreConfiguration;
-
   private final DryRunPrefix dryRunPrefix;
 
+  private AzureClient azureClient;
+
+  private LoadingCache<BlobId, AzureBlob> liveBlobs;
+
   @Inject
-  public AzureBlobStore(final BlobIdLocationResolver blobIdLocationResolver,
+  public AzureBlobStore(final AzureStorageClientFactory azureStorageClientFactory,
+                        final BlobIdLocationResolver blobIdLocationResolver,
                         final AzureBlobStoreMetricsStore metricsStore,
-                        final DryRunPrefix dryRunPrefix) {
+                        final DryRunPrefix dryRunPrefix)
+  {
+    super(blobIdLocationResolver, dryRunPrefix);
+    this.azureStorageClientFactory = checkNotNull(azureStorageClientFactory);
     this.blobIdLocationResolver = checkNotNull(blobIdLocationResolver);
     this.metricsStore = metricsStore;
     this.dryRunPrefix = dryRunPrefix;
@@ -88,22 +103,16 @@ public class AzureBlobStore
   @Override
   protected void doStart() throws Exception {
     log.info("starting");
-    // use sdk
-    SharedKeyCredentials creds = new SharedKeyCredentials("accountName", "accountKey");
+    liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(AzureBlob::new));
+
     metricsStore.start();
   }
 
+
   @Override
   protected void doStop() throws Exception {
+    liveBlobs = null;
     metricsStore.stop();
-  }
-
-  @Override
-  @Guarded(by = STARTED)
-  public Blob create(final InputStream inputStream, final Map<String, String> headers) {
-    checkNotNull(inputStream);
-
-    return null;
   }
 
   @Override
@@ -113,9 +122,26 @@ public class AzureBlobStore
   }
 
   @Override
-  @Guarded(by = STARTED)
-  public Blob create(final InputStream inputStream, final Map<String,String> headers, BlobId blobId) {
-    throw new UnsupportedOperationException("fixme");
+  protected Blob doCreate(final InputStream inputStream,
+                          final Map<String, String> headers,
+                          @Nullable final BlobId assignedBlobId)
+  {
+    checkNotNull(inputStream);
+    final BlobId blobId = getBlobId(headers, assignedBlobId);
+    final String blobPath = contentPath(blobId);
+
+    final AzureBlob blob = liveBlobs.getUnchecked(blobId);
+
+    blob.lock();
+
+    try {
+      azureClient.create(blobPath, inputStream);
+
+    }
+    catch (IOException e) {
+      new BlobStoreException(e, blobId);
+    }
+    return null;
   }
 
   @Override
@@ -136,24 +162,58 @@ public class AzureBlobStore
   public Blob get(final BlobId blobId, final boolean includeDeleted) {
     checkNotNull(blobId);
 
-    return null;
-  }
+    final AzureBlob blob = liveBlobs.getUnchecked(blobId);
 
+    if(blob.isStale()) {
+      Lock lock = blob.lock();
+      try {
+        if(blob.isStale()) {
+          AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, "");
+          boolean loaded = blobAttributes.load();
+          if (!loaded) {
+            log.warn("Attempt to access non-existent blob {} ({})", blobId, blobAttributes);
+            return null;
+          }
+
+          if (blobAttributes.isDeleted() && !includeDeleted) {
+            log.warn("Attempt to access soft-deleted blob {} ({})", blobId, blobAttributes);
+            return null;
+          }
+
+          blob.refresh(blobAttributes.getHeaders(), blobAttributes.getMetrics());
+        }
+      }
+      catch (IOException e) {
+        throw new BlobStoreException(e, blobId);
+      }
+      finally {
+        lock.unlock();
+      }
+    }
+
+    log.debug("Accessing blob {}", blobId);
+
+    return blob;
+  }
 
 
   @Override
   @Guarded(by = STARTED)
   public boolean delete(final BlobId blobId, final String reason) {
     checkNotNull(blobId);
+    throw new UnsupportedOperationException("fixme");
+  }
 
-    return false;
+  @Override
+  protected boolean doDelete(final BlobId blobId, final String s) {
+    throw new UnsupportedOperationException("fixme");
   }
 
   @Override
   @Guarded(by = STARTED)
   public boolean deleteHard(final BlobId blobId) {
     checkNotNull(blobId);
-    return false;
+    throw new UnsupportedOperationException("fixme");
   }
 
   @Override
@@ -180,7 +240,13 @@ public class AzureBlobStore
   }
 
   @Override
-  public void init(final BlobStoreConfiguration blobStoreConfiguration) throws Exception {
+  protected void doInit(final BlobStoreConfiguration blobStoreConfiguration) {
+    try {
+      azureClient = azureStorageClientFactory.create(blobStoreConfiguration);
+    }
+    catch (MalformedURLException | InvalidKeyException e) {
+      throw new BlobStoreException("Unable to initialize blob store container", e, null);
+    }
   }
 
   @Override
@@ -192,13 +258,13 @@ public class AzureBlobStore
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getBlobIdStream() {
-    return null;
+    throw new UnsupportedOperationException("fixme");
   }
 
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getDirectPathBlobIdStream(final String prefix) {
-    return null;
+    throw new UnsupportedOperationException("fixme");
   }
 
   /**
@@ -208,7 +274,7 @@ public class AzureBlobStore
   @Override
   @Guarded(by = STARTED)
   public BlobAttributes getBlobAttributes(final BlobId blobId) {
-    return null;
+    throw new UnsupportedOperationException("fixme");
   }
 
   @Override
@@ -219,7 +285,8 @@ public class AzureBlobStore
       try {
         existing.updateFrom(blobAttributes);
         existing.store();
-      } catch (IOException e) {
+      }
+      catch (IOException e) {
         log.error("Unable to set AzureBlobAttributes for blob id: {}", blobId, e);
       }
     }
@@ -276,6 +343,11 @@ public class AzureBlobStore
   }
 
   @Override
+  protected String attributePathString(final BlobId blobId) {
+    return null;
+  }
+
+  @Override
   @Guarded(by = STARTED)
   public boolean isWritable() {
     return false;
@@ -302,18 +374,16 @@ public class AzureBlobStore
     return CONTENT_PREFIX + "/" + blobIdLocationResolver.getLocation(id);
   }
 
-  private String getConfiguredBucketName() {
-    return blobStoreConfiguration.attributes(CONFIG_KEY).require(BUCKET_KEY).toString();
-  }
-
-  private Long getContentSizeForDeletion(final AzureBlobAttributes blobAttributes) {
-    try {
-      blobAttributes.load();
-      return blobAttributes.getMetrics() != null ? blobAttributes.getMetrics().getContentSize() : null;
+  class AzureBlob
+      extends BlobSupport
+  {
+    public AzureBlob(final BlobId blobId) {
+      super(blobId);
     }
-    catch (Exception e) {
-      log.warn("Unable to load attributes {}, delete will not be added to metrics.", blobAttributes, e);
-      return null;
+
+    @Override
+    public InputStream getInputStream() {
+      return azureClient.get(contentPath(getId()));
     }
   }
 }

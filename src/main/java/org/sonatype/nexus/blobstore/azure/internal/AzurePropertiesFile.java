@@ -12,8 +12,10 @@
  */
 package org.sonatype.nexus.blobstore.azure.internal;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Properties;
 
 import org.slf4j.Logger;
@@ -29,33 +31,36 @@ public class AzurePropertiesFile
 {
   private static final Logger log = LoggerFactory.getLogger(AzurePropertiesFile.class);
 
+  private AzureClient azureClient;
+
   private final String key;
 
-  public AzurePropertiesFile(final String key) {
+  public AzurePropertiesFile(final AzureClient azureClient, final String key) {
+    this.azureClient = checkNotNull(azureClient);
     this.key = checkNotNull(key);
   }
 
   public void load() throws IOException {
     log.debug("Loading properties: {}", key);
+    try(InputStream is = azureClient.get(key)) {
+      load(is);
+    }
   }
 
   public void store() throws IOException {
     log.debug("Storing properties: {}", key);
-
-    // write this properties instance to an in-memory buffer
     ByteArrayOutputStream bufferStream = new ByteArrayOutputStream();
     store(bufferStream, null);
     byte[] buffer = bufferStream.toByteArray();
-
-    // upload the buffer to the bucket
+    azureClient.create(key, new ByteArrayInputStream(buffer));
   }
 
   public boolean exists() throws IOException {
-    return false;
+    return azureClient.exists(key);
   }
 
   public void remove() throws IOException {
-
+    azureClient.delete(key);
   }
 
   public String toString() {
