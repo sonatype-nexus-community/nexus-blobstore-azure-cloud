@@ -37,6 +37,7 @@ import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 
 import com.google.common.hash.HashCode;
+import com.microsoft.azure.storage.blob.SharedKeyCredentials;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.HEADER_PREFIX;
@@ -86,6 +87,9 @@ public class AzureBlobStore
 
   @Override
   protected void doStart() throws Exception {
+    log.info("starting");
+    // use sdk
+    SharedKeyCredentials creds = new SharedKeyCredentials("accountName", "accountKey");
     metricsStore.start();
   }
 
@@ -177,7 +181,6 @@ public class AzureBlobStore
 
   @Override
   public void init(final BlobStoreConfiguration blobStoreConfiguration) throws Exception {
-
   }
 
   @Override

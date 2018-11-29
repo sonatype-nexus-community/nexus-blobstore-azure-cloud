@@ -75,56 +75,82 @@
       <artifactId>spock-core</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>com.microsoft.azure</groupId>
+      <artifactId>azure-storage-blob</artifactId>
+      <version>${azure-storage-java.version}</version>
+    </dependency>
+
   </dependencies>
 
   <build>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-failsafe-plugin</artifactId>
-        <version>2.22.0</version>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.0.0</version>
         <executions>
           <execution>
+            <phase>package</phase>
             <goals>
-              <goal>integration-test</goal>
-              <goal>verify</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.gmavenplus</groupId>
-        <artifactId>gmavenplus-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>mvn-coordinates</id>
-            <phase>initialize</phase>
-            <goals>
-              <goal>execute</goal>
+              <goal>shade</goal>
             </goals>
             <configuration>
-              <scripts>
-                <script>
-                  project.artifactMap.each{k,v->
-                    // add 'mvn:artifactId' properties representing Pax-URL path for each transitive artifact
-                    project.properties['mvn:'+v.artifactId]='mvn:'+v.groupId+'/'+v.artifactId+'/'+v.version
-                  }
-                </script>
-              </scripts>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>shaded</shadedClassifierName>
+              <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+              </transformers>
+              <artifactSet>
+                <excludes>
+                  <exclude>*:slf4j-api</exclude>
+                </excludes>
+              </artifactSet>
+              <relocations>
+                <relocation>
+                  <pattern>org.</pattern>
+                  <shadedPattern>zz.org.</shadedPattern>
+                  <excludes>
+                    <exclude>org.sonatype.nexus.blobstore.gcloud.**</exclude>
+                  </excludes>
+                </relocation>
+                <relocation>
+                  <pattern>com.</pattern>
+                  <shadedPattern>zz.com.</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.</pattern>
+                  <shadedPattern>zz.io.</shadedPattern>
+                </relocation>
+              </relocations>
             </configuration>
           </execution>
         </executions>
       </plugin>
+
       <plugin>
-        <groupId>org.apache.karaf.tooling</groupId>
-        <artifactId>karaf-maven-plugin</artifactId>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <extensions>true</extensions>
         <configuration>
-          <excludedArtifactIds combine.children="append">
-            <id>grpc-core</id>
-            <id>grpc-context</id>
-          </excludedArtifactIds>
+          <instructions>
+            <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
+            <Export-Package>
+              org.sonatype.nexus.blobstore.gcloud,
+              !org.sonatype.nexus.blobstore.gcloud,
+              com.microsoft.azure.storage.blob
+            </Export-Package>
+            <Import-Package></Import-Package>
+            <_versionpolicy>[$(version;==;$(@)),$(version;+;$(@)))</_versionpolicy>
+            <_removeheaders>Ignore-Package,Include-Resource,Private-Package,Embed-Dependency</_removeheaders>
+          </instructions>
+          <unpackBundle>true</unpackBundle>
         </configuration>
       </plugin>
+
     </plugins>
+
   </build>
 </project>
