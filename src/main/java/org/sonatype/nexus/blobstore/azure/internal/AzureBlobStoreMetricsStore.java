@@ -62,6 +62,8 @@ public class AzureBlobStoreMetricsStore
 
   private AzurePropertiesFile propertiesFile;
 
+  private AzureClient azureClient;
+
   @Inject
   public AzureBlobStoreMetricsStore(final PeriodicJobService jobService, final NodeAccess nodeAccess) {
     this.jobService = checkNotNull(jobService);
@@ -74,7 +76,7 @@ public class AzureBlobStoreMetricsStore
     totalSize = new AtomicLong();
     dirty = new AtomicBoolean();
 
-    propertiesFile = new AzurePropertiesFile(nodeAccess.getId() + METRICS_SUFFIX + METRICS_EXTENSION);
+    propertiesFile = new AzurePropertiesFile(azureClient,nodeAccess.getId() + METRICS_SUFFIX + METRICS_EXTENSION);
     if (propertiesFile.exists()) {
       log.info("Loading blob store metrics file {}", propertiesFile);
       propertiesFile.load();
@@ -100,6 +102,10 @@ public class AzureBlobStoreMetricsStore
         log.error("Cannot write blob store metrics", e);
       }
     }, METRICS_FLUSH_PERIOD_SECONDS);
+  }
+
+  public void setAzureClient(AzureClient azureClient) {
+    this.azureClient = azureClient;
   }
 
   @Override
