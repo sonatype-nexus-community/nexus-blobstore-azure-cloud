@@ -110,6 +110,12 @@ public class AzureBlobStore
 
   @Override
   @Guarded(by = STARTED)
+  public Blob create(final InputStream inputStream, final Map<String,String> headers, BlobId blobId) {
+    throw new UnsupportedOperationException("fixme");
+  }
+
+  @Override
+  @Guarded(by = STARTED)
   public Blob copy(final BlobId blobId, final Map<String, String> headers) {
     return null;
   }
