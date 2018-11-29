@@ -243,6 +243,7 @@ public class AzureBlobStore
   protected void doInit(final BlobStoreConfiguration blobStoreConfiguration) {
     try {
       azureClient = azureStorageClientFactory.create(blobStoreConfiguration);
+      metricsStore.setAzureClient(azureClient);
     }
     catch (MalformedURLException | InvalidKeyException e) {
       throw new BlobStoreException("Unable to initialize blob store container", e, null);
