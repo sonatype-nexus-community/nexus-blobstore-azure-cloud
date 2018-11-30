@@ -19,8 +19,11 @@ import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -29,9 +32,12 @@ import javax.inject.Named;
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.BlobStoreSupport;
 import org.sonatype.nexus.blobstore.BlobSupport;
+import org.sonatype.nexus.blobstore.MetricsInputStream;
+import org.sonatype.nexus.blobstore.StreamMetrics;
 import org.sonatype.nexus.blobstore.api.Blob;
 import org.sonatype.nexus.blobstore.api.BlobAttributes;
 import org.sonatype.nexus.blobstore.api.BlobId;
+import org.sonatype.nexus.blobstore.api.BlobMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStore;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.api.BlobStoreException;
@@ -43,9 +49,13 @@ import org.sonatype.nexus.common.stateguard.Guarded;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.hash.HashCode;
+import io.reactivex.Observable;
+import org.joda.time.DateTime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.from;
+import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_ROOT;
 import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.HEADER_PREFIX;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.NEW;
@@ -73,13 +83,23 @@ public class AzureBlobStore
 
   public static final String BLOB_ATTRIBUTE_SUFFIX = ".properties";
 
+  public static final String METADATA_FILENAME = "metadata.properties";
+
   static final String CONTENT_PREFIX = "content";
+
+  public static final String DIRECT_PATH_PREFIX = CONTENT_PREFIX + "/" + DIRECT_PATH_ROOT;
+
+  public static final String TYPE_KEY = "type";
+
+  public static final String TYPE_V1 = "s3/1";
+
+  private static final String FILE_V1 = "file/1";
 
   private AzureStorageClientFactory azureStorageClientFactory;
 
   private final BlobIdLocationResolver blobIdLocationResolver;
 
-  private final AzureBlobStoreMetricsStore metricsStore;
+  private final AzureBlobStoreMetricsStore storeMetrics;
 
   private final DryRunPrefix dryRunPrefix;
 
@@ -90,29 +110,41 @@ public class AzureBlobStore
   @Inject
   public AzureBlobStore(final AzureStorageClientFactory azureStorageClientFactory,
                         final BlobIdLocationResolver blobIdLocationResolver,
-                        final AzureBlobStoreMetricsStore metricsStore,
+                        final AzureBlobStoreMetricsStore storeMetrics,
                         final DryRunPrefix dryRunPrefix)
   {
     super(blobIdLocationResolver, dryRunPrefix);
     this.azureStorageClientFactory = checkNotNull(azureStorageClientFactory);
     this.blobIdLocationResolver = checkNotNull(blobIdLocationResolver);
-    this.metricsStore = metricsStore;
+    this.storeMetrics = storeMetrics;
     this.dryRunPrefix = dryRunPrefix;
   }
 
   @Override
   protected void doStart() throws Exception {
     log.info("starting");
+    AzurePropertiesFile metadata = new AzurePropertiesFile(azureClient, METADATA_FILENAME);
+    if (metadata.exists()) {
+      metadata.load();
+      String type = metadata.getProperty(TYPE_KEY);
+      checkState(TYPE_V1.equals(type) || FILE_V1.equals(type), "Unsupported blob store type/version: %s in %s", type,
+          metadata);
+    }
+    else {
+      // assumes new blobstore, write out type
+      metadata.setProperty(TYPE_KEY, TYPE_V1);
+      metadata.store();
+    }
     liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(AzureBlob::new));
-
-    metricsStore.start();
+    storeMetrics.setAzureClient(azureClient);
+    storeMetrics.start();
   }
 
 
   @Override
   protected void doStop() throws Exception {
     liveBlobs = null;
-    metricsStore.stop();
+    storeMetrics.stop();
   }
 
   @Override
@@ -122,32 +154,90 @@ public class AzureBlobStore
   }
 
   @Override
-  protected Blob doCreate(final InputStream inputStream,
+  protected Blob doCreate(final InputStream blobData,
                           final Map<String, String> headers,
-                          @Nullable final BlobId assignedBlobId)
+                          @Nullable final BlobId blobId)
   {
-    checkNotNull(inputStream);
+    return create(headers, destination -> {
+      try (InputStream data = blobData) {
+        MetricsInputStream input = new MetricsInputStream(data);
+        final String blobPath = contentPath(blobId);
+        azureClient.create(blobPath, data);
+        return input.getMetrics();
+      }
+    }, blobId);
+  }
+
+  private Blob create(final Map<String, String> headers,
+                      final BlobIngester ingester,
+                      @Nullable final BlobId assignedBlobId)
+  {
     final BlobId blobId = getBlobId(headers, assignedBlobId);
+
     final String blobPath = contentPath(blobId);
+    final String attributePath = attributePath(blobId);
+    final boolean isDirectPath = Boolean.parseBoolean(headers.getOrDefault(DIRECT_PATH_BLOB_HEADER, "false"));
+    Long existingSize = null;
+    if (isDirectPath) {
+      AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, attributePath);
+      if (exists(blobId)) {
+        existingSize = getContentSizeForDeletion(blobAttributes);
+      }
+    }
 
     final AzureBlob blob = liveBlobs.getUnchecked(blobId);
 
-    blob.lock();
-
+    Lock lock = blob.lock();
     try {
-      azureClient.create(blobPath, inputStream);
+      log.debug("Writing blob {} to {}", blobId, blobPath);
 
+      final StreamMetrics streamMetrics = ingester.ingestTo(blobPath);
+      final BlobMetrics metrics = new BlobMetrics(new DateTime(), streamMetrics.getSha1(), streamMetrics.getSize());
+      blob.refresh(headers, metrics);
+
+      AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, attributePath, headers, metrics);
+
+      blobAttributes.store();
+      if (isDirectPath && existingSize != null) {
+        storeMetrics.recordDeletion(existingSize);
+      }
+      storeMetrics.recordAddition(blobAttributes.getMetrics().getContentSize());
+
+      return blob;
     }
     catch (IOException e) {
-      new BlobStoreException(e, blobId);
+      // Something went wrong, clean up the files we created
+      azureClient.delete(attributePath);
+      azureClient.delete(blobPath);
+      throw new BlobStoreException(e, blobId);
     }
-    return null;
+    finally {
+      lock.unlock();
+    }
+  }
+
+  @Nullable
+  private Long getContentSizeForDeletion(final AzureBlobAttributes blobAttributes) {
+    try {
+      blobAttributes.load();
+      return blobAttributes.getMetrics() != null ? blobAttributes.getMetrics().getContentSize() : null;
+    }
+    catch (Exception e) {
+      log.warn("Unable to load attributes {}, delete will not be added to metrics.", blobAttributes, e);
+      return null;
+    }
   }
 
   @Override
   @Guarded(by = STARTED)
   public Blob copy(final BlobId blobId, final Map<String, String> headers) {
-    return null;
+    Blob sourceBlob = checkNotNull(get(blobId));
+    String sourcePath = contentPath(sourceBlob.getId());
+    return create(headers, destination -> {
+      azureClient.copy(sourcePath, destination);
+      BlobMetrics metrics = sourceBlob.getMetrics();
+      return new StreamMetrics(metrics.getContentSize(), metrics.getSha1Hash());
+    }, null);
   }
 
   @Nullable
@@ -164,10 +254,10 @@ public class AzureBlobStore
 
     final AzureBlob blob = liveBlobs.getUnchecked(blobId);
 
-    if(blob.isStale()) {
+    if (blob.isStale()) {
       Lock lock = blob.lock();
       try {
-        if(blob.isStale()) {
+        if (blob.isStale()) {
           AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, "");
           boolean loaded = blobAttributes.load();
           if (!loaded) {
@@ -196,30 +286,84 @@ public class AzureBlobStore
     return blob;
   }
 
-
   @Override
-  @Guarded(by = STARTED)
-  public boolean delete(final BlobId blobId, final String reason) {
-    checkNotNull(blobId);
-    throw new UnsupportedOperationException("fixme");
-  }
+  protected boolean doDelete(final BlobId blobId, final String reason) {
+    final AzureBlob blob = liveBlobs.getUnchecked(blobId);
 
-  @Override
-  protected boolean doDelete(final BlobId blobId, final String s) {
-    throw new UnsupportedOperationException("fixme");
+    Lock lock = blob.lock();
+    try {
+      log.debug("Soft deleting blob {}", blobId);
+
+      AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, attributePath(blobId));
+
+      boolean loaded = blobAttributes.load();
+      if (!loaded) {
+        // This could happen under some concurrent situations (two threads try to delete the same blob)
+        // but it can also occur if the deleted index refers to a manually-deleted blob.
+        log.warn("Attempt to mark-for-delete non-existent blob {}", blobId);
+        return false;
+      }
+      else if (blobAttributes.isDeleted()) {
+        log.debug("Attempt to delete already-deleted blob {}", blobId);
+        return false;
+      }
+
+      blobAttributes.setDeleted(true);
+      blobAttributes.setDeletedReason(reason);
+      blobAttributes.store();
+
+      //TODO: Soft delete the blobs some how.
+      // Account level - https://docs.microsoft.com/en-us/azure/storage/blobs/storage-blob-soft-delete
+      // Rename?
+      // Store in an Azure datastore?
+      // Something else?
+      blob.markStale();
+
+      return true;
+    }
+    catch (Exception e) {
+      throw new BlobStoreException(e, blobId);
+    }
+    finally {
+      lock.unlock();
+    }
   }
 
   @Override
   @Guarded(by = STARTED)
   public boolean deleteHard(final BlobId blobId) {
     checkNotNull(blobId);
-    throw new UnsupportedOperationException("fixme");
+
+    try {
+      log.debug("Hard deleting blob {}", blobId);
+
+      String attributePath = attributePath(blobId);
+      AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, attributePath);
+      Long contentSize = getContentSizeForDeletion(blobAttributes);
+
+      String blobPath = contentPath(blobId);
+
+      azureClient.delete(blobPath);
+      azureClient.delete(attributePath);
+
+      if (contentSize != null) {
+        storeMetrics.recordDeletion(contentSize);
+      }
+
+      return true;
+    }
+    catch (Exception e) {
+      throw new BlobStoreException(e, blobId);
+    }
+    finally {
+      liveBlobs.invalidate(blobId);
+    }
   }
 
   @Override
   @Guarded(by = STARTED)
   public BlobStoreMetrics getMetrics() {
-    return metricsStore.getMetrics();
+    return storeMetrics.getMetrics();
   }
 
   @Override
@@ -243,7 +387,8 @@ public class AzureBlobStore
   protected void doInit(final BlobStoreConfiguration blobStoreConfiguration) {
     try {
       azureClient = azureStorageClientFactory.create(blobStoreConfiguration);
-      metricsStore.setAzureClient(azureClient);
+      //TODO: Create container?
+      // other config that might come from the descriptor?
     }
     catch (MalformedURLException | InvalidKeyException e) {
       throw new BlobStoreException("Unable to initialize blob store container", e, null);
@@ -259,13 +404,23 @@ public class AzureBlobStore
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getBlobIdStream() {
-    throw new UnsupportedOperationException("fixme");
+    Observable<BlobId> map = azureClient
+        .listBlobs(CONTENT_PREFIX, blobItem -> blobItem.name().endsWith(BLOB_ATTRIBUTE_SUFFIX)).map(BlobId::new);
+    return toStream(map);
+  }
+
+  private Stream<BlobId> toStream(final Observable<BlobId> map) {
+    return StreamSupport.stream(
+        Spliterators.spliteratorUnknownSize(map.blockingIterable().iterator(), Spliterator.ORDERED),
+        false);
   }
 
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getDirectPathBlobIdStream(final String prefix) {
-    throw new UnsupportedOperationException("fixme");
+    Observable<BlobId> map = azureClient
+        .listBlobs(DIRECT_PATH_PREFIX, blobItem -> blobItem.name().endsWith(BLOB_ATTRIBUTE_SUFFIX)).map(BlobId::new);
+    return toStream(map);
   }
 
   /**
@@ -275,7 +430,14 @@ public class AzureBlobStore
   @Override
   @Guarded(by = STARTED)
   public BlobAttributes getBlobAttributes(final BlobId blobId) {
-    throw new UnsupportedOperationException("fixme");
+    try {
+      AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, attributePath(blobId));
+      return blobAttributes.load() ? blobAttributes : null;
+    }
+    catch (IOException e) {
+      log.error("Unable to load S3BlobAttributes for blob id: {}", blobId, e);
+      return null;
+    }
   }
 
   @Override
@@ -301,7 +463,13 @@ public class AzureBlobStore
   @Guarded(by = STARTED)
   public boolean exists(final BlobId blobId) {
     checkNotNull(blobId);
-    return getBlobAttributes(blobId) != null;
+    AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, attributePath(blobId));
+    try {
+      return blobAttributes.load();
+    } catch (IOException ioe) {
+      log.debug("Unable to load attributes {} during existence check, exception: {}", blobAttributes, ioe);
+      return false;
+    }
   }
 
   @Override
@@ -345,13 +513,14 @@ public class AzureBlobStore
 
   @Override
   protected String attributePathString(final BlobId blobId) {
-    return null;
+    return attributePath(blobId);
   }
 
   @Override
   @Guarded(by = STARTED)
   public boolean isWritable() {
-    return false;
+    //TODO: verify container exists?
+    return true;
   }
 
   /**
@@ -386,5 +555,10 @@ public class AzureBlobStore
     public InputStream getInputStream() {
       return azureClient.get(contentPath(getId()));
     }
+  }
+
+  private interface BlobIngester
+  {
+    StreamMetrics ingestTo(final String destination) throws IOException;
   }
 }

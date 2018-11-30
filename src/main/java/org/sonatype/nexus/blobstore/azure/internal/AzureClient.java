@@ -3,18 +3,26 @@ package org.sonatype.nexus.blobstore.azure.internal;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.stream.Stream;
+import java.util.stream.Stream.Builder;
 
 import org.sonatype.nexus.utils.ByteBufferInputStream;
 
 import com.microsoft.azure.storage.blob.BlockBlobURL;
 import com.microsoft.azure.storage.blob.ContainerURL;
 import com.microsoft.azure.storage.blob.DownloadResponse;
+import com.microsoft.azure.storage.blob.ListBlobsOptions;
 import com.microsoft.azure.storage.blob.StorageException;
+import com.microsoft.azure.storage.blob.models.BlobItem;
+import com.microsoft.azure.storage.blob.models.ContainerListBlobFlatSegmentResponse;
 import io.reactivex.Flowable;
+import io.reactivex.Observable;
+import io.reactivex.functions.Predicate;
 import org.apache.commons.io.IOUtils;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.microsoft.rest.v2.util.FlowableUtil.collectBytesInBuffer;
+import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.BLOB_CONTENT_SUFFIX;
 
 public class AzureClient
 {
@@ -61,5 +69,45 @@ public class AzureClient
 
   public void delete(final String path) {
     containerURL.createBlockBlobURL(path).delete().blockingGet();
+  }
+
+  public void copy(final String sourcePath, final String destination) {
+    BlockBlobURL sourceBlob = containerURL.createBlockBlobURL(sourcePath);
+    containerURL.createBlockBlobURL(destination).startCopyFromURL(sourceBlob.toURL()).blockingGet();
+  }
+
+  public Observable<String> listBlobs(final String contentPrefix, final Predicate<BlobItem> blobSuffixFilter) {
+    Predicate<BlobItem> filter = b -> true;
+    filter = blobSuffixFilter != null ? blobSuffixFilter : filter;
+    Builder<String> builder = Stream.builder();
+
+    ListBlobsOptions listBlobsOptions = new ListBlobsOptions().withPrefix(contentPrefix).withMaxResults(5);
+    Observable<BlobItem> itemObservable = containerURL
+        .listBlobsFlatSegment(null, listBlobsOptions)
+        .flatMapObservable(r -> listContainersResultToContainerObservable(containerURL, listBlobsOptions, r));
+    return itemObservable
+        .filter(filter)
+        .map(blobItem -> blobItem.name().substring(0, blobItem.name().length() - BLOB_CONTENT_SUFFIX.length()));
+  }
+
+  private static Observable<BlobItem> listContainersResultToContainerObservable(
+      ContainerURL containerURL, ListBlobsOptions listBlobsOptions,
+      ContainerListBlobFlatSegmentResponse response)
+  {
+    Observable<BlobItem> result = Observable.fromIterable(response.body().segment().blobItems());
+
+    System.out.println("!!! count: " + response.body().segment().blobItems());
+
+    if (response.body().nextMarker() != null) {
+      System.out.println("Hit continuation in listing at " + response.body().segment().blobItems().get(
+          response.body().segment().blobItems().size() - 1).name());
+      // Recursively add the continuation items to the observable.
+      result = result.concatWith(containerURL.listBlobsFlatSegment(response.body().nextMarker(), listBlobsOptions,
+          null)
+          .flatMapObservable((r) ->
+              listContainersResultToContainerObservable(containerURL, listBlobsOptions, r)));
+    }
+
+    return result;
   }
 }
