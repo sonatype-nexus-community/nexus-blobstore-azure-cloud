@@ -3,8 +3,6 @@ package org.sonatype.nexus.blobstore.azure.internal;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.stream.Stream;
-import java.util.stream.Stream.Builder;
 
 import org.sonatype.nexus.utils.ByteBufferInputStream;
 
@@ -22,7 +20,7 @@ import org.apache.commons.io.IOUtils;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.microsoft.rest.v2.util.FlowableUtil.collectBytesInBuffer;
-import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.BLOB_CONTENT_SUFFIX;
+import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.BLOB_ATTRIBUTE_SUFFIX;
 
 public class AzureClient
 {
@@ -76,18 +74,19 @@ public class AzureClient
     containerURL.createBlockBlobURL(destination).startCopyFromURL(sourceBlob.toURL()).blockingGet();
   }
 
-  public Observable<String> listBlobs(final String contentPrefix, final Predicate<BlobItem> blobSuffixFilter) {
-    Predicate<BlobItem> filter = b -> true;
+  public Observable<String> listBlobs(final String contentPrefix, final Predicate<String> blobSuffixFilter) {
+    Predicate<String> filter = b -> true;
     filter = blobSuffixFilter != null ? blobSuffixFilter : filter;
-    Builder<String> builder = Stream.builder();
 
     ListBlobsOptions listBlobsOptions = new ListBlobsOptions().withPrefix(contentPrefix).withMaxResults(5);
     Observable<BlobItem> itemObservable = containerURL
         .listBlobsFlatSegment(null, listBlobsOptions)
         .flatMapObservable(r -> listContainersResultToContainerObservable(containerURL, listBlobsOptions, r));
     return itemObservable
+        .map(BlobItem::name)
         .filter(filter)
-        .map(blobItem -> blobItem.name().substring(0, blobItem.name().length() - BLOB_CONTENT_SUFFIX.length()));
+        .map(key -> key.substring(key.lastIndexOf('/') + 1))
+        .map(fileName -> fileName.substring(0, fileName.length() - BLOB_ATTRIBUTE_SUFFIX.length()));
   }
 
   private static Observable<BlobItem> listContainersResultToContainerObservable(

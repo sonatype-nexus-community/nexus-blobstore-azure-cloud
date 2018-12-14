@@ -48,10 +48,13 @@ import org.sonatype.nexus.common.stateguard.Guarded;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import io.reactivex.Observable;
+import io.reactivex.functions.Predicate;
 import org.joda.time.DateTime;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.from;
@@ -110,13 +113,13 @@ public class AzureBlobStore
   @Inject
   public AzureBlobStore(final AzureStorageClientFactory azureStorageClientFactory,
                         final BlobIdLocationResolver blobIdLocationResolver,
-                        final AzureBlobStoreMetricsStore storeMetrics,
+                        final AzureBlobStoreMetricsStore metricsStore,
                         final DryRunPrefix dryRunPrefix)
   {
     super(blobIdLocationResolver, dryRunPrefix);
     this.azureStorageClientFactory = checkNotNull(azureStorageClientFactory);
     this.blobIdLocationResolver = checkNotNull(blobIdLocationResolver);
-    this.storeMetrics = storeMetrics;
+    this.storeMetrics = metricsStore;
     this.dryRunPrefix = dryRunPrefix;
   }
 
@@ -403,12 +406,12 @@ public class AzureBlobStore
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getBlobIdStream() {
-    Observable<BlobId> map = azureClient
-        .listBlobs(CONTENT_PREFIX, blobItem -> blobItem.name().endsWith(BLOB_ATTRIBUTE_SUFFIX)).map(BlobId::new);
-    return toStream(map);
+    Predicate<String> blobItemPredicate = name -> name.endsWith(BLOB_ATTRIBUTE_SUFFIX);
+    return toStream(azureClient.listBlobs(CONTENT_PREFIX, blobItemPredicate))
+        .map(BlobId::new);
   }
 
-  private Stream<BlobId> toStream(final Observable<BlobId> map) {
+  private Stream<String> toStream(final Observable<String> map) {
     return StreamSupport.stream(
         Spliterators.spliteratorUnknownSize(map.blockingIterable().iterator(), Spliterator.ORDERED),
         false);
@@ -417,9 +420,9 @@ public class AzureBlobStore
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getDirectPathBlobIdStream(final String prefix) {
-    Observable<BlobId> map = azureClient
-        .listBlobs(DIRECT_PATH_PREFIX, blobItem -> blobItem.name().endsWith(BLOB_ATTRIBUTE_SUFFIX)).map(BlobId::new);
-    return toStream(map);
+    Predicate<String> blobItemPredicate = name -> name.endsWith(BLOB_ATTRIBUTE_SUFFIX);
+    return toStream(azureClient.listBlobs(DIRECT_PATH_PREFIX, blobItemPredicate))
+        .map(this::attributePathToDirectPathBlobId);
   }
 
   /**
@@ -541,6 +544,24 @@ public class AzureBlobStore
    */
   private String getLocation(final BlobId id) {
     return CONTENT_PREFIX + "/" + blobIdLocationResolver.getLocation(id);
+  }
+
+  /**
+   * Used by {@link #getDirectPathBlobIdStream(String)} to convert an s3 key to a {@link BlobId}.
+   *
+   * @see BlobIdLocationResolver
+   */
+  private BlobId attributePathToDirectPathBlobId(final String key) { // NOSONAR
+    checkArgument(key.startsWith(DIRECT_PATH_PREFIX + "/"), "Not direct path blob path: %s", key);
+    checkArgument(key.endsWith(BLOB_ATTRIBUTE_SUFFIX), "Not blob attribute path: %s", key);
+    String blobName = key
+        .substring(0, key.length() - BLOB_ATTRIBUTE_SUFFIX.length())
+        .substring(DIRECT_PATH_PREFIX.length() + 1);
+    Map<String, String> headers = ImmutableMap.of(
+        BLOB_NAME_HEADER, blobName,
+        DIRECT_PATH_BLOB_HEADER, "true"
+    );
+    return blobIdLocationResolver.fromHeaders(headers);
   }
 
   class AzureBlob
