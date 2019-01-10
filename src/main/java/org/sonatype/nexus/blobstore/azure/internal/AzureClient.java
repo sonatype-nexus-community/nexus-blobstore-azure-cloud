@@ -1,6 +1,5 @@
 package org.sonatype.nexus.blobstore.azure.internal;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -17,7 +16,6 @@ import com.microsoft.azure.storage.blob.StorageException;
 import com.microsoft.azure.storage.blob.models.BlobItem;
 import com.microsoft.azure.storage.blob.models.BlockBlobCommitBlockListResponse;
 import com.microsoft.azure.storage.blob.models.ContainerListBlobFlatSegmentResponse;
-import io.reactivex.Flowable;
 import io.reactivex.Observable;
 import io.reactivex.functions.Predicate;
 
@@ -40,23 +38,11 @@ public class AzureClient
     this.chunkSize = chunkSize;
   }
 
-  public BlockBlobCommitBlockListResponse create(final String path,
-                                                 final InputStream data) throws IOException
-  {
+  public BlockBlobCommitBlockListResponse create(final String path, final InputStream data) {
     ArrayList<String> blockIds = new ArrayList<>();
     BlockBlobURL blobURL = containerURL.createBlockBlobURL(path);
 
-
-    Observable.fromIterable()
-
-    Observable<Pair<Flowable<ByteBuffer>, Integer>> observable = Observable.create(emitter -> {
-      while (data.available() > 0) {
-        emitter.onNext(readSomeBytes(data));
-      }
-      emitter.onComplete();
-    });
-
-    return observable.concatMapEager(pair -> {
+    return Observable.fromIterable(new InputStreamIterator(data)).concatMapEager(pair -> {
       final String blockId = createBase64BlockId();
       blockIds.add(blockId);
       return blobURL.stageBlock(blockId, pair.one, pair.two)
@@ -66,12 +52,6 @@ public class AzureClient
         .collectInto(new ArrayList<String>(), ArrayList::add)
         .flatMap(ids -> blobURL.commitBlockList(blockIds))
         .blockingGet();
-  }
-
-  private Pair<Flowable<ByteBuffer>, Integer> readSomeBytes(final InputStream data) throws IOException {
-    byte[] bytes = new byte[chunkSize];
-    int read = data.read(bytes);
-    return new Pair<>(Flowable.just(ByteBuffer.wrap(bytes, 0, read)), read);
   }
 
   private static String createBase64BlockId() {
