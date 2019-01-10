@@ -4,6 +4,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.InvalidKeyException;
 
+import javax.inject.Inject;
 import javax.inject.Named;
 
 import org.sonatype.goodies.common.ComponentSupport;
@@ -32,6 +33,13 @@ import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.CONTAIN
 public class AzureStorageClientFactory
     extends ComponentSupport
 {
+  private int chunkSize;
+
+  @Inject
+  public AzureStorageClientFactory(@Named("${nexus.azure.blocksize:-5242880}") final int chunkSize) {
+    this.chunkSize = chunkSize;
+  }
+
   public AzureClient create(final BlobStoreConfiguration blobStoreConfiguration)
       throws MalformedURLException, InvalidKeyException
   {
@@ -48,6 +56,6 @@ public class AzureStorageClientFactory
     URL u = new URL(format(ROOT, "https://%s.blob.core.windows.net", accountName));
     ServiceURL serviceURL = new ServiceURL(u, pipeline);
     ContainerURL containerURL = serviceURL.createContainerURL(containerName);
-    return new AzureClient(containerURL);
+    return new AzureClient(containerURL, chunkSize);
   }
 }

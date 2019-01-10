@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 
+import org.sonatype.nexus.blobstore.AttributesLocation;
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.BlobStoreSupport;
 import org.sonatype.nexus.blobstore.BlobSupport;
@@ -70,7 +71,7 @@ import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.St
  */
 @Named(AzureBlobStore.TYPE)
 public class AzureBlobStore
-    extends BlobStoreSupport
+    extends BlobStoreSupport<AttributesLocation>
 {
   public static final String TYPE = "Azure Cloud Storage";
 
@@ -332,10 +333,7 @@ public class AzureBlobStore
   }
 
   @Override
-  @Guarded(by = STARTED)
-  public boolean deleteHard(final BlobId blobId) {
-    checkNotNull(blobId);
-
+  protected boolean doDeleteHard(final BlobId blobId) {
     try {
       log.debug("Hard deleting blob {}", blobId);
 
@@ -386,6 +384,13 @@ public class AzureBlobStore
   }
 
   @Override
+  protected BlobAttributes getBlobAttributes(final AttributesLocation attributesFilePath) throws IOException {
+    AzureBlobAttributes azureBlobAttributes = new AzureBlobAttributes(azureClient, attributesFilePath.getFullPath());
+    azureBlobAttributes.load();
+    return azureBlobAttributes;
+  }
+
+  @Override
   protected void doInit(final BlobStoreConfiguration blobStoreConfiguration) {
     try {
       azureClient = azureStorageClientFactory.create(blobStoreConfiguration);
@@ -408,6 +413,8 @@ public class AzureBlobStore
   public Stream<BlobId> getBlobIdStream() {
     Predicate<String> blobItemPredicate = name -> name.endsWith(BLOB_ATTRIBUTE_SUFFIX);
     return toStream(azureClient.listBlobs(CONTENT_PREFIX, blobItemPredicate))
+        .map(AzureAttributesLocation::new)
+        .map(this::getBlobIdFromAttributeFilePath)
         .map(BlobId::new);
   }
 
@@ -514,6 +521,11 @@ public class AzureBlobStore
   }
 
   @Override
+  public boolean isStorageAvailable() {
+    return false;
+  }
+
+  @Override
   protected String attributePathString(final BlobId blobId) {
     return attributePath(blobId);
   }
@@ -574,6 +586,25 @@ public class AzureBlobStore
     @Override
     public InputStream getInputStream() {
       return azureClient.get(contentPath(getId()));
+    }
+  }
+
+  class AzureAttributesLocation implements AttributesLocation {
+
+    private String key;
+
+    public AzureAttributesLocation(String key) {
+      this.key = checkNotNull(key);
+    }
+
+    @Override
+    public String getFileName() {
+      return key.substring(key.lastIndexOf('/') + 1);
+    }
+
+    @Override
+    public String getFullPath() {
+      return key;
     }
   }
 

@@ -17,21 +17,24 @@ class AzureClientTest
           (AzureBlobStore.CONFIG_KEY): [
               (AzureBlobStore.ACCOUNT_NAME_KEY)  : System.getProperty('nxrm.azure.accountName'),
               (AzureBlobStore.ACCOUNT_KEY_KEY)   : System.getProperty('nxrm.azure.accountKey'),
-              (AzureBlobStore.CONTAINER_NAME_KEY): System.getProperty('nxrm.azure.containerName'),
+              (AzureBlobStore.CONTAINER_NAME_KEY): UUID.randomUUID().toString(),
           ]
       ])
-      def client = new AzureStorageClientFactory().create(configuration)
+      def client = new AzureStorageClientFactory(2).create(configuration)
+
+    and: 'The container is created'
+      client.createContainer()
 
     and: 'A blob'
       def blobName = 'testBlob'
-      def blobPath = "${blobName}.bytes"
-      String data = 'Hello world!'
+      def blobPath = "${blobName}.properties"
+      String data = 'Hello world!' * 100
 
     when: 'The blob is created with the client'
       def downloadResponse = client.create(blobPath, new ByteArrayInputStream(data.getBytes()))
 
     then: 'The response is downloaded'
-      downloadResponse.statusCode() == 206
+      downloadResponse.statusCode() == 201
 
     and: 'The client reports the blob exists'
       client.exists(blobPath)
@@ -44,14 +47,15 @@ class AzureClientTest
       actual == data
 
     when: 'The blob is copied'
-      def blobNamePathCopy = "${blobName}_copy.bytes"
+      def blobNamePathCopy = "${blobName}_copy.properties"
       client.copy(blobPath, blobNamePathCopy)
 
     then: 'The copy exists'
       client.exists(blobNamePathCopy)
 
     and: 'The client can list the files'
-      Observable<String> files = client.listBlobs('', { blobItem -> blobItem.name().endsWith(AzureBlobStore.BLOB_CONTENT_SUFFIX) })
+      Observable<String> files = client.listBlobs('',
+          { blobItem -> blobItem.endsWith(AzureBlobStore.BLOB_ATTRIBUTE_SUFFIX) })
       def results = []
       files.blockingForEach({ results.add(it) })
       results == ['testBlob', 'testBlob_copy']

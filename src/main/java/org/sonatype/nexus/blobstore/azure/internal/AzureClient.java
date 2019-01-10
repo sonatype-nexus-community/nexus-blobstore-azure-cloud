@@ -3,47 +3,83 @@ package org.sonatype.nexus.blobstore.azure.internal;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.UUID;
 
+import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.utils.ByteBufferInputStream;
 
 import com.microsoft.azure.storage.blob.BlockBlobURL;
 import com.microsoft.azure.storage.blob.ContainerURL;
-import com.microsoft.azure.storage.blob.DownloadResponse;
 import com.microsoft.azure.storage.blob.ListBlobsOptions;
 import com.microsoft.azure.storage.blob.StorageException;
 import com.microsoft.azure.storage.blob.models.BlobItem;
+import com.microsoft.azure.storage.blob.models.BlockBlobCommitBlockListResponse;
 import com.microsoft.azure.storage.blob.models.ContainerListBlobFlatSegmentResponse;
 import io.reactivex.Flowable;
 import io.reactivex.Observable;
 import io.reactivex.functions.Predicate;
-import org.apache.commons.io.IOUtils;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.microsoft.rest.v2.util.FlowableUtil.collectBytesInBuffer;
 import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.BLOB_ATTRIBUTE_SUFFIX;
 
 public class AzureClient
+    extends ComponentSupport
 {
 
   private final ContainerURL containerURL;
 
-  public AzureClient(final ContainerURL containerURL)
-  {
+  private int chunkSize;
+
+  public AzureClient(final ContainerURL containerURL, final int chunkSize) {
     this.containerURL = checkNotNull(containerURL);
+    checkArgument(chunkSize > 0, "Chunk size must be > 0");
+    this.chunkSize = chunkSize;
   }
 
-  public DownloadResponse create(final String path,
-                                 final InputStream data) throws IOException
+  public BlockBlobCommitBlockListResponse create(final String path,
+                                                 final InputStream data) throws IOException
   {
-    byte[] bytes = IOUtils.toByteArray(data);
-    Flowable<ByteBuffer> just = Flowable.just(ByteBuffer.wrap(bytes));
+    ArrayList<String> blockIds = new ArrayList<>();
     BlockBlobURL blobURL = containerURL.createBlockBlobURL(path);
-    DownloadResponse downloadResponse = blobURL.upload(just, bytes.length, null, null, null, null)
-        .flatMap(blobsDownloadResponse ->
-            // Download the blob's content.
-            blobURL.download(null, null, false, null))
+
+
+    Observable.fromIterable()
+
+    Observable<Pair<Flowable<ByteBuffer>, Integer>> observable = Observable.create(emitter -> {
+      while (data.available() > 0) {
+        emitter.onNext(readSomeBytes(data));
+      }
+      emitter.onComplete();
+    });
+
+    return observable.concatMapEager(pair -> {
+      final String blockId = createBase64BlockId();
+      blockIds.add(blockId);
+      return blobURL.stageBlock(blockId, pair.one, pair.two)
+          .map(x -> blockId)
+          .toObservable();
+    }, 10, 1)
+        .collectInto(new ArrayList<String>(), ArrayList::add)
+        .flatMap(ids -> blobURL.commitBlockList(blockIds))
         .blockingGet();
-    return downloadResponse;
+  }
+
+  private Pair<Flowable<ByteBuffer>, Integer> readSomeBytes(final InputStream data) throws IOException {
+    byte[] bytes = new byte[chunkSize];
+    int read = data.read(bytes);
+    return new Pair<>(Flowable.just(ByteBuffer.wrap(bytes, 0, read)), read);
+  }
+
+  private static String createBase64BlockId() {
+    UUID uuid = UUID.randomUUID();
+    ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+    bb.putLong(uuid.getMostSignificantBits());
+    bb.putLong(uuid.getLeastSignificantBits());
+    return Base64.getEncoder().encodeToString(bb.array());
   }
 
   public InputStream get(final String path) {
@@ -56,11 +92,11 @@ public class AzureClient
 
   public boolean exists(final String path) {
     try {
-      containerURL.createBlobURL(path).getProperties()
-          .blockingGet();
+      containerURL.createBlobURL(path).getProperties().blockingGet();
       return true;
     }
     catch (StorageException e) {
+      log.debug("Path {} does not exist with reason {}", path, e.message(), e);
       return false;
     }
   }
@@ -108,5 +144,21 @@ public class AzureClient
     }
 
     return result;
+  }
+
+  public void createContainer() {
+    containerURL.create().blockingGet();
+  }
+
+  class Pair<U, T>
+  {
+    public final U one;
+
+    public final T two;
+
+    public Pair(final U one, final T two) {
+      this.one = one;
+      this.two = two;
+    }
   }
 }
