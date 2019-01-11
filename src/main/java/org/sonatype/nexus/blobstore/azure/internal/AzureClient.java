@@ -48,7 +48,7 @@ public class AzureClient
       return blobURL.stageBlock(blockId, pair.one, pair.two)
           .map(x -> blockId)
           .toObservable();
-    }, 10, 1)
+    }, 1, 1)
         .collectInto(new ArrayList<String>(), ArrayList::add)
         .flatMap(ids -> blobURL.commitBlockList(blockIds))
         .blockingGet();

@@ -47,6 +47,9 @@ public class InputStreamIterator
         catch (IOException e) {
           throw new RuntimeException(e);
         }
+        if(read == 0) {
+          return new Tuple<>(Flowable.empty(), 0L);
+        }
         return new Tuple<>(Flowable.just(ByteBuffer.wrap(buffer, 0, read)), (long) read);
       }
     };
