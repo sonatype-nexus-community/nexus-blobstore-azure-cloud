@@ -11,24 +11,32 @@ import spock.lang.Specification
 class AzureClientTest
     extends Specification
 {
+  private AzureClient client
+
+  def setup() {
+    def configuration = new BlobStoreConfiguration(attributes: [
+        (AzureBlobStore.CONFIG_KEY): [
+            (AzureBlobStore.ACCOUNT_NAME_KEY)  : System.getProperty('nxrm.azure.accountName'),
+            (AzureBlobStore.ACCOUNT_KEY_KEY)   : System.getProperty('nxrm.azure.accountKey'),
+            (AzureBlobStore.CONTAINER_NAME_KEY): UUID.randomUUID().toString(),
+        ]
+    ])
+    client = new AzureStorageClientFactory(2).create(configuration)
+    this.client.createContainer()
+  }
+
+  def cleanup() {
+    client.deleteContainer()
+  }
+
   def "It will create and get a file"() {
     given: 'A client'
-      def configuration = new BlobStoreConfiguration(attributes: [
-          (AzureBlobStore.CONFIG_KEY): [
-              (AzureBlobStore.ACCOUNT_NAME_KEY)  : System.getProperty('nxrm.azure.accountName'),
-              (AzureBlobStore.ACCOUNT_KEY_KEY)   : System.getProperty('nxrm.azure.accountKey'),
-              (AzureBlobStore.CONTAINER_NAME_KEY): UUID.randomUUID().toString(),
-          ]
-      ])
-      def client = new AzureStorageClientFactory(2).create(configuration)
 
-    and: 'The container is created'
-      client.createContainer()
 
     and: 'A blob'
       def blobName = 'testBlob'
       def blobPath = "${blobName}.properties"
-      String data = 'Hello world!' * 100
+      String data = 'Hello world!' * 20
 
     when: 'The blob is created with the client'
       def downloadResponse = client.create(blobPath, new ByteArrayInputStream(data.getBytes()))
@@ -67,5 +75,24 @@ class AzureClientTest
     then: 'The blobs no longer exists'
       !client.exists(blobPath)
       !client.exists(blobNamePathCopy)
+  }
+
+  def "It will detect if the container exists"() {
+    when: 'the container exists'
+      client.containerExists()
+
+    and: 'the container is delete'
+      client.deleteContainer()
+
+    then: 'the container no longer exists'
+      !client.containerExists()
+  }
+
+  def "It will list files"() {
+    expect:
+      client.create('file1.txt', new ByteArrayInputStream('helloworld'.bytes))
+      client.create('file2.txt', new ByteArrayInputStream('helloworld'.bytes))
+      def files = client.listFiles('', { x -> x.endsWith('.txt') })
+      files.blockingIterable().iterator().collect() == ['file1.txt', 'file2.txt']
   }
 }

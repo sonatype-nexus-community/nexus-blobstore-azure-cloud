@@ -6,9 +6,12 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.UUID;
 
+import javax.annotation.Nullable;
+
 import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.utils.ByteBufferInputStream;
 
+import com.github.davidmoten.rx2.Bytes;
 import com.microsoft.azure.storage.blob.BlockBlobURL;
 import com.microsoft.azure.storage.blob.ContainerURL;
 import com.microsoft.azure.storage.blob.ListBlobsOptions;
@@ -16,6 +19,7 @@ import com.microsoft.azure.storage.blob.StorageException;
 import com.microsoft.azure.storage.blob.models.BlobItem;
 import com.microsoft.azure.storage.blob.models.BlockBlobCommitBlockListResponse;
 import com.microsoft.azure.storage.blob.models.ContainerListBlobFlatSegmentResponse;
+import io.reactivex.Flowable;
 import io.reactivex.Observable;
 import io.reactivex.functions.Predicate;
 
@@ -42,10 +46,11 @@ public class AzureClient
     ArrayList<String> blockIds = new ArrayList<>();
     BlockBlobURL blobURL = containerURL.createBlockBlobURL(path);
 
-    return Observable.fromIterable(new InputStreamIterator(data)).concatMapEager(pair -> {
+    return Bytes.from(data, chunkSize).toObservable().concatMapEager(buffer -> {
       final String blockId = createBase64BlockId();
       blockIds.add(blockId);
-      return blobURL.stageBlock(blockId, pair.one, pair.two)
+      Flowable<ByteBuffer> just = Flowable.just(ByteBuffer.wrap(buffer));
+      return blobURL.stageBlock(blockId, just, buffer.length)
           .map(x -> blockId)
           .toObservable();
     }, 1, 1)
@@ -90,7 +95,7 @@ public class AzureClient
     containerURL.createBlockBlobURL(destination).startCopyFromURL(sourceBlob.toURL()).blockingGet();
   }
 
-  public Observable<String> listBlobs(final String contentPrefix, final Predicate<String> blobSuffixFilter) {
+  public Observable<String> listBlobs(final String contentPrefix, @Nullable final Predicate<String> blobSuffixFilter) {
     Predicate<String> filter = b -> true;
     filter = blobSuffixFilter != null ? blobSuffixFilter : filter;
 
@@ -103,6 +108,16 @@ public class AzureClient
         .filter(filter)
         .map(key -> key.substring(key.lastIndexOf('/') + 1))
         .map(fileName -> fileName.substring(0, fileName.length() - BLOB_ATTRIBUTE_SUFFIX.length()));
+  }
+
+  public Observable<String> listFiles(final String contentPrefix, final Predicate<String> blobSuffixFilter) {
+    ListBlobsOptions listBlobsOptions = new ListBlobsOptions().withPrefix(contentPrefix).withMaxResults(5);
+    Observable<BlobItem> itemObservable = containerURL
+        .listBlobsFlatSegment(null, listBlobsOptions)
+        .flatMapObservable(r -> listContainersResultToContainerObservable(containerURL, listBlobsOptions, r));
+    return itemObservable
+        .map(BlobItem::name)
+        .filter(blobSuffixFilter);
   }
 
   private static Observable<BlobItem> listContainersResultToContainerObservable(
@@ -130,15 +145,20 @@ public class AzureClient
     containerURL.create().blockingGet();
   }
 
-  class Pair<U, T>
-  {
-    public final U one;
+  public void deleteContainer() {
+    containerURL.delete().blockingGet();
+  }
 
-    public final T two;
-
-    public Pair(final U one, final T two) {
-      this.one = one;
-      this.two = two;
+  public boolean containerExists() {
+    try {
+      containerURL.getProperties().blockingGet();
+      return true;
+    }
+    catch (StorageException e) {
+      if (e.response().statusCode() == 404) {
+        return false;
+      }
+      throw new RuntimeException(e);
     }
   }
 }

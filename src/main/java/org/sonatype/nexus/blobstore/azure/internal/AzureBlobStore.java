@@ -141,6 +141,7 @@ public class AzureBlobStore
     }
     liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(AzureBlob::new));
     storeMetrics.setAzureClient(azureClient);
+    storeMetrics.setBlobStore(this);
     storeMetrics.start();
   }
 
@@ -394,8 +395,9 @@ public class AzureBlobStore
   protected void doInit(final BlobStoreConfiguration blobStoreConfiguration) {
     try {
       azureClient = azureStorageClientFactory.create(blobStoreConfiguration);
-      //TODO: Create container?
-      // other config that might come from the descriptor?
+      if (!azureClient.containerExists()) {
+        azureClient.createContainer();
+      }
     }
     catch (MalformedURLException | InvalidKeyException e) {
       throw new BlobStoreException("Unable to initialize blob store container", e, null);
@@ -406,6 +408,7 @@ public class AzureBlobStore
   @Guarded(by = {NEW, STOPPED, FAILED})
   public void remove() {
     // TODO delete bucket only if it is empty
+    azureClient.deleteContainer();
   }
 
   @Override

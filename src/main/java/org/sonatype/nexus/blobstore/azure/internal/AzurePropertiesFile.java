@@ -18,6 +18,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+import org.sonatype.nexus.common.property.ImplicitSourcePropertiesFile;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * {@link Properties} representation stored in Azure Cloud Storage.
  */
 public class AzurePropertiesFile
-    extends Properties
+    extends ImplicitSourcePropertiesFile
 {
   private static final Logger log = LoggerFactory.getLogger(AzurePropertiesFile.class);
 

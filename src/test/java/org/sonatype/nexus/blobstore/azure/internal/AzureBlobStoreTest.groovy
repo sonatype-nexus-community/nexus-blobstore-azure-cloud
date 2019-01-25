@@ -15,7 +15,6 @@
  */
 package org.sonatype.nexus.blobstore.azure.internal
 
-
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver
 import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver
 import org.sonatype.nexus.blobstore.api.BlobId
@@ -27,30 +26,34 @@ import spock.lang.Specification
 class AzureBlobStoreTest
     extends Specification
 {
+  private AzureBlobStore azureBlobStore
+
+  void setup() {
+    BlobStoreConfiguration configuration = new BlobStoreConfiguration(
+        name: 'azure',
+        type: AzureBlobStore.TYPE,
+        attributes: [
+            'azure cloud storage': [
+                (AzureBlobStore.ACCOUNT_NAME_KEY)  : System.getProperty('nxrm.azure.accountName'),
+                (AzureBlobStore.ACCOUNT_KEY_KEY)   : System.getProperty('nxrm.azure.accountKey'),
+                (AzureBlobStore.CONTAINER_NAME_KEY): UUID.randomUUID().toString()
+            ]
+        ]
+    )
+    BlobIdLocationResolver resolver = new DefaultBlobIdLocationResolver()
+    AzureBlobStoreMetricsStore storeMetrics = Mock(AzureBlobStoreMetricsStore)
+    DryRunPrefix dryRunPrefix = new DryRunPrefix("dr")
+
+    azureBlobStore = new AzureBlobStore(new AzureStorageClientFactory(20), resolver, storeMetrics, dryRunPrefix)
+    this.azureBlobStore.init(configuration)
+    this.azureBlobStore.start()
+  }
+
+  void cleanup() {
+    azureBlobStore.remove()
+  }
 
   def "It will create, get and delete blobs"() {
-    given: 'An azure blob store configuration'
-
-      BlobStoreConfiguration configuration = new BlobStoreConfiguration(
-          name: 'azure',
-          type: AzureBlobStore.TYPE,
-          attributes: [
-              'azure cloud storage': [
-                  (AzureBlobStore.ACCOUNT_NAME_KEY)  : System.getProperty('nxrm.azure.accountName'),
-                  (AzureBlobStore.ACCOUNT_KEY_KEY)   : System.getProperty('nxrm.azure.accountKey'),
-                  (AzureBlobStore.CONTAINER_NAME_KEY): System.getProperty('nxrm.azure.containerName')
-              ]
-          ]
-      )
-    and: 'A started azure blob store'
-      BlobIdLocationResolver resolver = new DefaultBlobIdLocationResolver()
-      AzureBlobStoreMetricsStore storeMetrics = Mock(AzureBlobStoreMetricsStore)
-      DryRunPrefix dryRunPrefix = new DryRunPrefix("dr")
-
-      def azureBlobStore = new AzureBlobStore(new AzureStorageClientFactory(), resolver, storeMetrics, dryRunPrefix)
-      azureBlobStore.init(configuration)
-      azureBlobStore.start()
-
     when: 'A new blob is created'
       byte[] bytes = [0, 0, 0, 1] as byte[]
       def headers = [
