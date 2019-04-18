@@ -1,5 +1,6 @@
 package org.sonatype.nexus.blobstore.azure.internal;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -9,9 +10,9 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import org.sonatype.goodies.common.ComponentSupport;
-import org.sonatype.nexus.utils.ByteBufferInputStream;
 
 import com.github.davidmoten.rx2.Bytes;
+import com.google.common.io.ByteSource;
 import com.microsoft.azure.storage.blob.BlockBlobURL;
 import com.microsoft.azure.storage.blob.ContainerURL;
 import com.microsoft.azure.storage.blob.ListBlobsOptions;
@@ -67,12 +68,14 @@ public class AzureClient
     return Base64.getEncoder().encodeToString(bb.array());
   }
 
-  public InputStream get(final String path) {
+  public InputStream get(final String path) throws IOException {
     ByteBuffer byteBuffer = containerURL.createBlockBlobURL(path)
         .download()
         .flatMap(blobsDownloadResponse -> collectBytesInBuffer(blobsDownloadResponse.body(null)))
         .blockingGet();
-    return new ByteBufferInputStream(byteBuffer);
+
+    return ByteSource.wrap(byteBuffer.array()).openStream();
+    //return new ByteBufferInputStream(byteBuffer);
   }
 
   public boolean exists(final String path) {

@@ -586,7 +586,12 @@ public class AzureBlobStore
 
     @Override
     public InputStream getInputStream() {
-      return azureClient.get(contentPath(getId()));
+      try {
+        return azureClient.get(contentPath(getId()));
+      }
+      catch (IOException e) {
+        throw new BlobStoreException("caught IOException on client#get", e, getId());
+      }
     }
   }
 
