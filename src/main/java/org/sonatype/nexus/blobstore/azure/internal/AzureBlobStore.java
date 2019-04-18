@@ -95,9 +95,7 @@ public class AzureBlobStore
 
   public static final String TYPE_KEY = "type";
 
-  public static final String TYPE_V1 = "s3/1";
-
-  private static final String FILE_V1 = "file/1";
+  public static final String TYPE_V1 = "azure/1";
 
   private AzureStorageClientFactory azureStorageClientFactory;
 
@@ -131,7 +129,7 @@ public class AzureBlobStore
     if (metadata.exists()) {
       metadata.load();
       String type = metadata.getProperty(TYPE_KEY);
-      checkState(TYPE_V1.equals(type) || FILE_V1.equals(type), "Unsupported blob store type/version: %s in %s", type,
+      checkState(TYPE_V1.equals(type), "Unsupported blob store type/version: %s in %s", type,
           metadata);
     }
     else {
@@ -415,7 +413,7 @@ public class AzureBlobStore
   @Guarded(by = STARTED)
   public Stream<BlobId> getBlobIdStream() {
     Predicate<String> blobItemPredicate = name -> name.endsWith(BLOB_ATTRIBUTE_SUFFIX);
-    return toStream(azureClient.listBlobs(CONTENT_PREFIX, blobItemPredicate))
+    return toStream(azureClient.listFiles(CONTENT_PREFIX, blobItemPredicate))
         .map(AzureAttributesLocation::new)
         .map(this::getBlobIdFromAttributeFilePath)
         .map(BlobId::new);
@@ -447,7 +445,7 @@ public class AzureBlobStore
       return blobAttributes.load() ? blobAttributes : null;
     }
     catch (IOException e) {
-      log.error("Unable to load S3BlobAttributes for blob id: {}", blobId, e);
+      log.error("Unable to load AzureBlobAttributes for blob id: {}", blobId, e);
       return null;
     }
   }
@@ -562,7 +560,7 @@ public class AzureBlobStore
   }
 
   /**
-   * Used by {@link #getDirectPathBlobIdStream(String)} to convert an s3 key to a {@link BlobId}.
+   * Used by {@link #getDirectPathBlobIdStream(String)} to convert an azure key to a {@link BlobId}.
    *
    * @see BlobIdLocationResolver
    */

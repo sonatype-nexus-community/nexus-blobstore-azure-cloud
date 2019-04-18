@@ -36,7 +36,7 @@ class AzureClientTest
     and: 'A blob'
       def blobName = 'testBlob'
       def blobPath = "${blobName}.properties"
-      String data = 'Hello world!' * 20
+      String data = 'Hello world!' * 200
 
     when: 'The blob is created with the client'
       def downloadResponse = client.create(blobPath, new ByteArrayInputStream(data.getBytes()))
