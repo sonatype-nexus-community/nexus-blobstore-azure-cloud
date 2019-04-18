@@ -164,7 +164,7 @@ public class AzureBlobStore
     return create(headers, destination -> {
       try (InputStream data = blobData) {
         MetricsInputStream input = new MetricsInputStream(data);
-        azureClient.create(destination, data);
+        azureClient.create(destination, input);
         return input.getMetrics();
       }
     }, blobId);
