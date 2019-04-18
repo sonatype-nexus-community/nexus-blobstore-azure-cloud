@@ -260,7 +260,7 @@ public class AzureBlobStore
       Lock lock = blob.lock();
       try {
         if (blob.isStale()) {
-          AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, "");
+          AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, attributePath(blobId));
           boolean loaded = blobAttributes.load();
           if (!loaded) {
             log.warn("Attempt to access non-existent blob {} ({})", blobId, blobAttributes);
