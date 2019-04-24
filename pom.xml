@@ -30,7 +30,7 @@
   <packaging>bundle</packaging>
 
   <properties>
-    <azure-storage-java.version>10.3.0</azure-storage-java.version>
+    <azure-storage-java.version>11.0.0</azure-storage-java.version>
   </properties>
 
   <dependencies>
