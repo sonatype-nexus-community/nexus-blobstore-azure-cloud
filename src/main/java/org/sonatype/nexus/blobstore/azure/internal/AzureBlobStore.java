@@ -1,6 +1,6 @@
 /*
  * Sonatype Nexus (TM) Open Source Version
- * Copyright (c) 2017-present Sonatype, Inc.
+ * Copyright (c) 2019-present Sonatype, Inc.
  * All rights reserved. Includes the third-party code listed at http://links.sonatype.com/products/nexus/oss/attributions.
  *
  * This program and the accompanying materials are made available under the terms of the Eclipse Public License Version 1.0,
@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 
+import org.sonatype.nexus.blobstore.AttributesLocation;
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
 import org.sonatype.nexus.blobstore.BlobStoreSupport;
 import org.sonatype.nexus.blobstore.BlobSupport;
@@ -46,12 +47,12 @@ import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
 import org.sonatype.nexus.common.log.DryRunPrefix;
 import org.sonatype.nexus.common.stateguard.Guarded;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import io.reactivex.Observable;
-import io.reactivex.functions.Predicate;
 import org.joda.time.DateTime;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,7 +71,7 @@ import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.St
  */
 @Named(AzureBlobStore.TYPE)
 public class AzureBlobStore
-    extends BlobStoreSupport
+    extends BlobStoreSupport<AttributesLocation>
 {
   public static final String TYPE = "Azure Cloud Storage";
 
@@ -94,15 +95,14 @@ public class AzureBlobStore
 
   public static final String TYPE_KEY = "type";
 
-  public static final String TYPE_V1 = "s3/1";
-
-  private static final String FILE_V1 = "file/1";
+  public static final String TYPE_V1 = "azure/1";
 
   private AzureStorageClientFactory azureStorageClientFactory;
 
   private final BlobIdLocationResolver blobIdLocationResolver;
 
-  private final AzureBlobStoreMetricsStore storeMetrics;
+  @VisibleForTesting
+  public final AzureBlobStoreMetricsStore storeMetrics;
 
   private final DryRunPrefix dryRunPrefix;
 
@@ -130,7 +130,7 @@ public class AzureBlobStore
     if (metadata.exists()) {
       metadata.load();
       String type = metadata.getProperty(TYPE_KEY);
-      checkState(TYPE_V1.equals(type) || FILE_V1.equals(type), "Unsupported blob store type/version: %s in %s", type,
+      checkState(TYPE_V1.equals(type), "Unsupported blob store type/version: %s in %s", type,
           metadata);
     }
     else {
@@ -140,6 +140,7 @@ public class AzureBlobStore
     }
     liveBlobs = CacheBuilder.newBuilder().weakValues().build(from(AzureBlob::new));
     storeMetrics.setAzureClient(azureClient);
+    storeMetrics.setBlobStore(this);
     storeMetrics.start();
   }
 
@@ -164,7 +165,7 @@ public class AzureBlobStore
     return create(headers, destination -> {
       try (InputStream data = blobData) {
         MetricsInputStream input = new MetricsInputStream(data);
-        azureClient.create(destination, data);
+        azureClient.create(destination, input);
         return input.getMetrics();
       }
     }, blobId);
@@ -260,7 +261,7 @@ public class AzureBlobStore
       Lock lock = blob.lock();
       try {
         if (blob.isStale()) {
-          AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, "");
+          AzureBlobAttributes blobAttributes = new AzureBlobAttributes(azureClient, attributePath(blobId));
           boolean loaded = blobAttributes.load();
           if (!loaded) {
             log.warn("Attempt to access non-existent blob {} ({})", blobId, blobAttributes);
@@ -332,10 +333,7 @@ public class AzureBlobStore
   }
 
   @Override
-  @Guarded(by = STARTED)
-  public boolean deleteHard(final BlobId blobId) {
-    checkNotNull(blobId);
-
+  protected boolean doDeleteHard(final BlobId blobId) {
     try {
       log.debug("Hard deleting blob {}", blobId);
 
@@ -369,14 +367,7 @@ public class AzureBlobStore
   }
 
   @Override
-  @Guarded(by = STARTED)
-  public void compact() {
-    compact(null);
-  }
-
-  @Override
-  @Guarded(by = STARTED)
-  public void compact(@Nullable final BlobStoreUsageChecker blobStoreUsageChecker) {
+  protected void doCompact(@Nullable final BlobStoreUsageChecker inUseChecker) {
 
   }
 
@@ -386,11 +377,19 @@ public class AzureBlobStore
   }
 
   @Override
+  protected BlobAttributes getBlobAttributes(final AttributesLocation attributesFilePath) throws IOException {
+    AzureBlobAttributes azureBlobAttributes = new AzureBlobAttributes(azureClient, attributesFilePath.getFullPath());
+    azureBlobAttributes.load();
+    return azureBlobAttributes;
+  }
+
+  @Override
   protected void doInit(final BlobStoreConfiguration blobStoreConfiguration) {
     try {
       azureClient = azureStorageClientFactory.create(blobStoreConfiguration);
-      //TODO: Create container?
-      // other config that might come from the descriptor?
+      if (!azureClient.containerExists()) {
+        azureClient.createContainer();
+      }
     }
     catch (MalformedURLException | InvalidKeyException e) {
       throw new BlobStoreException("Unable to initialize blob store container", e, null);
@@ -401,13 +400,20 @@ public class AzureBlobStore
   @Guarded(by = {NEW, STOPPED, FAILED})
   public void remove() {
     // TODO delete bucket only if it is empty
+    Boolean contentEmpty = azureClient.listFiles("content/").isEmpty().blockingGet();
+    if (contentEmpty) {
+      new AzurePropertiesFile(azureClient, METADATA_FILENAME).remove();
+      storeMetrics.remove();
+      azureClient.deleteContainer();
+    }
   }
 
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getBlobIdStream() {
-    Predicate<String> blobItemPredicate = name -> name.endsWith(BLOB_ATTRIBUTE_SUFFIX);
-    return toStream(azureClient.listBlobs(CONTENT_PREFIX, blobItemPredicate))
+    return toStream(azureClient.listFiles(CONTENT_PREFIX, this::blobItemPredicate))
+        .map(AzureAttributesLocation::new)
+        .map(this::getBlobIdFromAttributeFilePath)
         .map(BlobId::new);
   }
 
@@ -420,9 +426,12 @@ public class AzureBlobStore
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getDirectPathBlobIdStream(final String prefix) {
-    Predicate<String> blobItemPredicate = name -> name.endsWith(BLOB_ATTRIBUTE_SUFFIX);
-    return toStream(azureClient.listBlobs(DIRECT_PATH_PREFIX, blobItemPredicate))
+    return toStream(azureClient.listFiles(DIRECT_PATH_PREFIX, this::blobItemPredicate))
         .map(this::attributePathToDirectPathBlobId);
+  }
+
+  private boolean blobItemPredicate(final String name) {
+    return name.endsWith(BLOB_ATTRIBUTE_SUFFIX);
   }
 
   /**
@@ -437,7 +446,7 @@ public class AzureBlobStore
       return blobAttributes.load() ? blobAttributes : null;
     }
     catch (IOException e) {
-      log.error("Unable to load S3BlobAttributes for blob id: {}", blobId, e);
+      log.error("Unable to load AzureBlobAttributes for blob id: {}", blobId, e);
       return null;
     }
   }
@@ -514,15 +523,18 @@ public class AzureBlobStore
   }
 
   @Override
-  protected String attributePathString(final BlobId blobId) {
-    return attributePath(blobId);
+  public boolean isStorageAvailable() {
+    try {
+      return azureClient.containerExists();
+    } catch (Exception e) {
+      log.warn("Azure container '{}' is not writable.", azureClient.getContainerName(), e);
+      return false;
+    }
   }
 
   @Override
-  @Guarded(by = STARTED)
-  public boolean isWritable() {
-    //TODO: verify container exists?
-    return true;
+  protected String attributePathString(final BlobId blobId) {
+    return attributePath(blobId);
   }
 
   /**
@@ -535,7 +547,8 @@ public class AzureBlobStore
   /**
    * Returns path for blob-id attribute file relative to root directory.
    */
-  private String attributePath(final BlobId id) {
+  @VisibleForTesting
+  protected String attributePath(final BlobId id) {
     return getLocation(id) + BLOB_ATTRIBUTE_SUFFIX;
   }
 
@@ -547,7 +560,7 @@ public class AzureBlobStore
   }
 
   /**
-   * Used by {@link #getDirectPathBlobIdStream(String)} to convert an s3 key to a {@link BlobId}.
+   * Used by {@link #getDirectPathBlobIdStream(String)} to convert an azure key to a {@link BlobId}.
    *
    * @see BlobIdLocationResolver
    */
@@ -573,7 +586,31 @@ public class AzureBlobStore
 
     @Override
     public InputStream getInputStream() {
-      return azureClient.get(contentPath(getId()));
+      try {
+        return azureClient.get(contentPath(getId()));
+      }
+      catch (IOException e) {
+        throw new BlobStoreException("caught IOException on client#get", e, getId());
+      }
+    }
+  }
+
+  static class AzureAttributesLocation implements AttributesLocation {
+
+    private String key;
+
+    public AzureAttributesLocation(String key) {
+      this.key = checkNotNull(key);
+    }
+
+    @Override
+    public String getFileName() {
+      return key.substring(key.lastIndexOf('/') + 1);
+    }
+
+    @Override
+    public String getFullPath() {
+      return key;
     }
   }
 

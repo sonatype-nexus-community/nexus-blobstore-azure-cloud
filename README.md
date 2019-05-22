@@ -1,7 +1,7 @@
 <!--
 
     Sonatype Nexus (TM) Open Source Version
-    Copyright (c) 2017-present Sonatype, Inc.
+    Copyright (c) 2019-present Sonatype, Inc.
     All rights reserved. Includes the third-party code listed at http://links.sonatype.com/products/nexus/oss/attributions.
 
     This program and the accompanying materials are made available under the terms of the Eclipse Public License Version 1.0,
@@ -15,47 +15,37 @@
 Nexus Repository Azure Cloud Storage Blobstore
 ==============================
 
-[![Build Status](https://travis-ci.org/sonatype-nexus-community/nexus-blobstore-Azure-cloud.svg?branch=master)](https://travis-ci.org/sonatype-nexus-community/nexus-blobstore-Azure-cloud) [![Join the chat at https://gitter.im/sonatype/nexus-developers](https://badges.gitter.im/sonatype/nexus-developers.svg)](https://gitter.im/sonatype/nexus-developers?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Join the chat at https://gitter.im/sonatype/nexus-developers](https://badges.gitter.im/sonatype/nexus-developers.svg)](https://gitter.im/sonatype/nexus-developers?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-This project adds [Azure Cloud Object Storage](https://cloud.Azure.com/storage/) backed blobstores to Sonatype Nexus 
-Repository 3.14 and later.  It allows Nexus Repository to store the components and assets in Azure Cloud instead of a
+This project adds [Azure Cloud Object Storage](https://cloud.Azure.com/storage/) backed blob stores to Sonatype Nexus 
+Repository 3.16 and later.  It allows Nexus Repository to store the components and assets in Azure Cloud instead of a
 local filesystem.
 
 Contribution Guidelines
 -----------------------
-
-Go read [our contribution guidelines](/.github/CONTRIBUTING.md) to get a bit more familiar with how
-we would like things to flow.
+Go read [our contribution guidelines](/.github/CONTRIBUTING.md) to get a bit more familiar with how we would like things to flow.
 
 Requirements
 ------------
-
 * [Apache Maven 3.3.3+](https://maven.apache.org/install.html)
 * [Java 8+](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html)
 * Network access to https://repository.sonatype.org/content/groups/sonatype-public-grid
 
-Also, there is a good amount of information available at [Bundle Development Overview](https://help.sonatype.com/display/NXRM3/Bundle+Development#BundleDevelopment-BundleDevelopmentOverview)
-
 Building
 --------
-
 To build the project and generate the bundle use Maven:
 
-    mvn clean install
-    
+    mvn clean install -DskipTests
+
+Creating Docker Image bundled with Azure Storage Plugin
+-------------------------------------------------------
+
+    docker build -t nexus3_azure .
+
 Integration Tests
 -----------------
+TODO
 
-Integration tests can be found within src/test/java and have the class suffix `IT`. [Additional documentation is provided about how to configure and run them](src/test/resources/README.md)
-
-Installing
-----------
-
-After you have built the project, run the provided install script
-
-```bash
-sh ./install-plugin.sh path/to/your/nxrm3/install
-```
 
 Azure Cloud Storage Permissions
 --------------------------------
@@ -65,13 +55,11 @@ Azure Cloud Storage Authentication
 -----------------------------------
 TODO
 
-Per the [Azure Cloud documentation](https://...):
 
-
-Configuration
--------------
-
-A restart of Nexus Repository Manager is required to complete the installation process.
+Installation
+------------
+While nexus is stopped, copy target/nexus-blobstore-azure-cloud-0.4.0-SNAPSHOT-shaded.jar in the deploy folder in your
+nexus 3 distribution. Start nexus and the plugin will be installed.
 
 Log in as admin and create a new blobstore, selecting 'Azure Cloud Storage' as the type.
 

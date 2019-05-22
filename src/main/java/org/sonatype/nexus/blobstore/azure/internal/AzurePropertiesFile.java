@@ -1,6 +1,6 @@
 /*
  * Sonatype Nexus (TM) Open Source Version
- * Copyright (c) 2017-present Sonatype, Inc.
+ * Copyright (c) 2019-present Sonatype, Inc.
  * All rights reserved. Includes the third-party code listed at http://links.sonatype.com/products/nexus/oss/attributions.
  *
  * This program and the accompanying materials are made available under the terms of the Eclipse Public License Version 1.0,
@@ -18,6 +18,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+import org.sonatype.nexus.common.property.ImplicitSourcePropertiesFile;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * {@link Properties} representation stored in Azure Cloud Storage.
  */
 public class AzurePropertiesFile
-    extends Properties
+    extends ImplicitSourcePropertiesFile
 {
   private static final Logger log = LoggerFactory.getLogger(AzurePropertiesFile.class);
 
@@ -42,7 +44,7 @@ public class AzurePropertiesFile
 
   public void load() throws IOException {
     log.debug("Loading properties: {}", key);
-    try(InputStream is = azureClient.get(key)) {
+    try (InputStream is = azureClient.get(key)) {
       load(is);
     }
   }
@@ -51,15 +53,14 @@ public class AzurePropertiesFile
     log.debug("Storing properties: {}", key);
     ByteArrayOutputStream bufferStream = new ByteArrayOutputStream();
     store(bufferStream, null);
-    byte[] buffer = bufferStream.toByteArray();
-    azureClient.create(key, new ByteArrayInputStream(buffer));
+    azureClient.create(key, new ByteArrayInputStream(bufferStream.toByteArray()));
   }
 
-  public boolean exists() throws IOException {
+  public boolean exists() {
     return azureClient.exists(key);
   }
 
-  public void remove() throws IOException {
+  public void remove() {
     azureClient.delete(key);
   }
 
