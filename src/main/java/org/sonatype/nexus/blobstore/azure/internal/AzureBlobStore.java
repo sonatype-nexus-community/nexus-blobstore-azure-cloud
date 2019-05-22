@@ -1,6 +1,6 @@
 /*
  * Sonatype Nexus (TM) Open Source Version
- * Copyright (c) 2017-present Sonatype, Inc.
+ * Copyright (c) 2019-present Sonatype, Inc.
  * All rights reserved. Includes the third-party code listed at http://links.sonatype.com/products/nexus/oss/attributions.
  *
  * This program and the accompanying materials are made available under the terms of the Eclipse Public License Version 1.0,
@@ -47,12 +47,12 @@ import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
 import org.sonatype.nexus.common.log.DryRunPrefix;
 import org.sonatype.nexus.common.stateguard.Guarded;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import io.reactivex.Observable;
-import io.reactivex.functions.Predicate;
 import org.joda.time.DateTime;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -101,7 +101,8 @@ public class AzureBlobStore
 
   private final BlobIdLocationResolver blobIdLocationResolver;
 
-  private final AzureBlobStoreMetricsStore storeMetrics;
+  @VisibleForTesting
+  public final AzureBlobStoreMetricsStore storeMetrics;
 
   private final DryRunPrefix dryRunPrefix;
 
@@ -366,14 +367,7 @@ public class AzureBlobStore
   }
 
   @Override
-  @Guarded(by = STARTED)
-  public void compact() {
-    compact(null);
-  }
-
-  @Override
-  @Guarded(by = STARTED)
-  public void compact(@Nullable final BlobStoreUsageChecker blobStoreUsageChecker) {
+  protected void doCompact(@Nullable final BlobStoreUsageChecker inUseChecker) {
 
   }
 
@@ -406,14 +400,18 @@ public class AzureBlobStore
   @Guarded(by = {NEW, STOPPED, FAILED})
   public void remove() {
     // TODO delete bucket only if it is empty
-    azureClient.deleteContainer();
+    Boolean contentEmpty = azureClient.listFiles("content/").isEmpty().blockingGet();
+    if (contentEmpty) {
+      new AzurePropertiesFile(azureClient, METADATA_FILENAME).remove();
+      storeMetrics.remove();
+      azureClient.deleteContainer();
+    }
   }
 
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getBlobIdStream() {
-    Predicate<String> blobItemPredicate = name -> name.endsWith(BLOB_ATTRIBUTE_SUFFIX);
-    return toStream(azureClient.listFiles(CONTENT_PREFIX, blobItemPredicate))
+    return toStream(azureClient.listFiles(CONTENT_PREFIX, this::blobItemPredicate))
         .map(AzureAttributesLocation::new)
         .map(this::getBlobIdFromAttributeFilePath)
         .map(BlobId::new);
@@ -428,9 +426,12 @@ public class AzureBlobStore
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getDirectPathBlobIdStream(final String prefix) {
-    Predicate<String> blobItemPredicate = name -> name.endsWith(BLOB_ATTRIBUTE_SUFFIX);
-    return toStream(azureClient.listBlobs(DIRECT_PATH_PREFIX, blobItemPredicate))
+    return toStream(azureClient.listFiles(DIRECT_PATH_PREFIX, this::blobItemPredicate))
         .map(this::attributePathToDirectPathBlobId);
+  }
+
+  private boolean blobItemPredicate(final String name) {
+    return name.endsWith(BLOB_ATTRIBUTE_SUFFIX);
   }
 
   /**
@@ -523,19 +524,17 @@ public class AzureBlobStore
 
   @Override
   public boolean isStorageAvailable() {
-    return false;
+    try {
+      return azureClient.containerExists();
+    } catch (Exception e) {
+      log.warn("Azure container '{}' is not writable.", azureClient.getContainerName(), e);
+      return false;
+    }
   }
 
   @Override
   protected String attributePathString(final BlobId blobId) {
     return attributePath(blobId);
-  }
-
-  @Override
-  @Guarded(by = STARTED)
-  public boolean isWritable() {
-    //TODO: verify container exists?
-    return true;
   }
 
   /**
@@ -548,7 +547,8 @@ public class AzureBlobStore
   /**
    * Returns path for blob-id attribute file relative to root directory.
    */
-  private String attributePath(final BlobId id) {
+  @VisibleForTesting
+  protected String attributePath(final BlobId id) {
     return getLocation(id) + BLOB_ATTRIBUTE_SUFFIX;
   }
 
@@ -595,7 +595,7 @@ public class AzureBlobStore
     }
   }
 
-  class AzureAttributesLocation implements AttributesLocation {
+  static class AzureAttributesLocation implements AttributesLocation {
 
     private String key;
 

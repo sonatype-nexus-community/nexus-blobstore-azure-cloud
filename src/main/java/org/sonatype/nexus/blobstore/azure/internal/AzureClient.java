@@ -1,3 +1,15 @@
+/*
+ * Sonatype Nexus (TM) Open Source Version
+ * Copyright (c) 2019-present Sonatype, Inc.
+ * All rights reserved. Includes the third-party code listed at http://links.sonatype.com/products/nexus/oss/attributions.
+ *
+ * This program and the accompanying materials are made available under the terms of the Eclipse Public License Version 1.0,
+ * which accompanies this distribution and is available at http://www.eclipse.org/legal/epl-v10.html.
+ *
+ * Sonatype Nexus (TM) Professional Version is available from Sonatype, Inc. "Sonatype" and "Sonatype Nexus" are trademarks
+ * of Sonatype, Inc. Apache Maven is a trademark of the Apache Software Foundation. M2eclipse is a trademark of the
+ * Eclipse Foundation. All other trademarks are the property of their respective owners.
+ */
 package org.sonatype.nexus.blobstore.azure.internal;
 
 import java.io.IOException;
@@ -7,8 +19,6 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.UUID;
 
-import javax.annotation.Nullable;
-
 import org.sonatype.goodies.common.ComponentSupport;
 
 import com.github.davidmoten.rx2.Bytes;
@@ -17,6 +27,7 @@ import com.microsoft.azure.storage.blob.BlockBlobURL;
 import com.microsoft.azure.storage.blob.ContainerURL;
 import com.microsoft.azure.storage.blob.ListBlobsOptions;
 import com.microsoft.azure.storage.blob.StorageException;
+import com.microsoft.azure.storage.blob.models.BlobFlatListSegment;
 import com.microsoft.azure.storage.blob.models.BlobItem;
 import com.microsoft.azure.storage.blob.models.BlockBlobCommitBlockListResponse;
 import com.microsoft.azure.storage.blob.models.ContainerListBlobFlatSegmentResponse;
@@ -27,18 +38,19 @@ import io.reactivex.functions.Predicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.microsoft.rest.v2.util.FlowableUtil.collectBytesInBuffer;
-import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.BLOB_ATTRIBUTE_SUFFIX;
 
 public class AzureClient
     extends ComponentSupport
 {
-
   private final ContainerURL containerURL;
+
+  private final String containerName;
 
   private int chunkSize;
 
-  public AzureClient(final ContainerURL containerURL, final int chunkSize) {
+  public AzureClient(final ContainerURL containerURL, final int chunkSize, final String containerName) {
     this.containerURL = checkNotNull(containerURL);
+    this.containerName = checkNotNull(containerName);
     checkArgument(chunkSize > 0, "Chunk size must be > 0");
     this.chunkSize = chunkSize;
   }
@@ -98,49 +110,36 @@ public class AzureClient
     containerURL.createBlockBlobURL(destination).startCopyFromURL(sourceBlob.toURL()).blockingGet();
   }
 
-  public Observable<String> listBlobs(final String contentPrefix, @Nullable final Predicate<String> blobSuffixFilter) {
-    Predicate<String> filter = b -> true;
-    filter = blobSuffixFilter != null ? blobSuffixFilter : filter;
-
+  Observable<String> listFiles(final String contentPrefix) {
     ListBlobsOptions listBlobsOptions = new ListBlobsOptions().withPrefix(contentPrefix).withMaxResults(5);
     Observable<BlobItem> itemObservable = containerURL
         .listBlobsFlatSegment(null, listBlobsOptions)
         .flatMapObservable(r -> listContainersResultToContainerObservable(containerURL, listBlobsOptions, r));
     return itemObservable
-        .map(BlobItem::name)
-        .filter(filter)
-        .map(key -> key.substring(key.lastIndexOf('/') + 1))
-        .map(fileName -> fileName.substring(0, fileName.length() - BLOB_ATTRIBUTE_SUFFIX.length()));
+        .map(BlobItem::name);
   }
 
   public Observable<String> listFiles(final String contentPrefix, final Predicate<String> blobSuffixFilter) {
-    ListBlobsOptions listBlobsOptions = new ListBlobsOptions().withPrefix(contentPrefix).withMaxResults(5);
-    Observable<BlobItem> itemObservable = containerURL
-        .listBlobsFlatSegment(null, listBlobsOptions)
-        .flatMapObservable(r -> listContainersResultToContainerObservable(containerURL, listBlobsOptions, r));
-    return itemObservable
-        .map(BlobItem::name)
+    return listFiles(contentPrefix)
         .filter(blobSuffixFilter);
   }
 
   private static Observable<BlobItem> listContainersResultToContainerObservable(
-      ContainerURL containerURL, ListBlobsOptions listBlobsOptions,
-      ContainerListBlobFlatSegmentResponse response)
+      final ContainerURL containerURL,
+      final ListBlobsOptions listBlobsOptions,
+      final ContainerListBlobFlatSegmentResponse response)
   {
-    Observable<BlobItem> result = Observable.fromIterable(response.body().segment().blobItems());
-
-    System.out.println("!!! count: " + response.body().segment().blobItems());
-
+    BlobFlatListSegment segment = response.body().segment();
+    if (segment == null) {
+      return Observable.empty();
+    }
+    Observable<BlobItem> result = Observable.fromIterable(segment.blobItems());
     if (response.body().nextMarker() != null) {
-      System.out.println("Hit continuation in listing at " + response.body().segment().blobItems().get(
-          response.body().segment().blobItems().size() - 1).name());
-      // Recursively add the continuation items to the observable.
       result = result.concatWith(containerURL.listBlobsFlatSegment(response.body().nextMarker(), listBlobsOptions,
           null)
           .flatMapObservable((r) ->
               listContainersResultToContainerObservable(containerURL, listBlobsOptions, r)));
     }
-
     return result;
   }
 
@@ -163,5 +162,9 @@ public class AzureClient
       }
       throw new RuntimeException(e);
     }
+  }
+
+  public String getContainerName() {
+    return containerName;
   }
 }

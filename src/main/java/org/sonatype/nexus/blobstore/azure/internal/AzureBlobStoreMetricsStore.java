@@ -1,6 +1,6 @@
 /*
  * Sonatype Nexus (TM) Open Source Version
- * Copyright (c) 2017-present Sonatype, Inc.
+ * Copyright (c) 2019-present Sonatype, Inc.
  * All rights reserved. Includes the third-party code listed at http://links.sonatype.com/products/nexus/oss/attributions.
  *
  * This program and the accompanying materials are made available under the terms of the Eclipse Public License Version 1.0,
@@ -12,7 +12,6 @@
  */
 package org.sonatype.nexus.blobstore.azure.internal;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -78,20 +77,18 @@ public class AzureBlobStoreMetricsStore
       return Stream.empty();
     }
     return Stream.of(getProperties());
-    //return StreamSupport.stream(azureClient
-    //    .listFiles("", s -> s.endsWith(METRICS_SUFFIX))
+    //TODO: Fix this. Really only needed for HA-C and current impl of metrics
+    //List<AzurePropertiesFile> azurePropertiesFiles = new ArrayList<>();
+    //azureClient
+    //    .listFiles("", AzureBlobStoreMetricsStore::metricsFileSuffix)
     //    .map(x -> new AzurePropertiesFile(azureClient, x))
-    //    .blockingIterable().spliterator(), false);
+    //    .blockingIterable().iterator().forEachRemaining(azurePropertiesFiles::add);
+    //return azurePropertiesFiles.stream();
   }
 
+  private static boolean metricsFileSuffix(String s) {return s.endsWith(METRICS_FILENAME);}
+
   public void remove() {
-    backingFiles().forEach(metricsFile -> {
-      try {
-        metricsFile.remove();
-      }
-      catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    });
+    backingFiles().forEach(metricsFile -> { metricsFile.remove(); });
   }
 }

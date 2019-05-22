@@ -1,6 +1,6 @@
 /*
  * Sonatype Nexus (TM) Open Source Version
- * Copyright (c) 2017-present Sonatype, Inc.
+ * Copyright (c) 2019-present Sonatype, Inc.
  * All rights reserved. Includes the third-party code listed at http://links.sonatype.com/products/nexus/oss/attributions.
  *
  * This program and the accompanying materials are made available under the terms of the Eclipse Public License Version 1.0,
@@ -44,7 +44,7 @@ public class AzurePropertiesFile
 
   public void load() throws IOException {
     log.debug("Loading properties: {}", key);
-    try(InputStream is = azureClient.get(key)) {
+    try (InputStream is = azureClient.get(key)) {
       load(is);
     }
   }
@@ -53,15 +53,14 @@ public class AzurePropertiesFile
     log.debug("Storing properties: {}", key);
     ByteArrayOutputStream bufferStream = new ByteArrayOutputStream();
     store(bufferStream, null);
-    byte[] buffer = bufferStream.toByteArray();
-    azureClient.create(key, new ByteArrayInputStream(buffer));
+    azureClient.create(key, new ByteArrayInputStream(bufferStream.toByteArray()));
   }
 
-  public boolean exists() throws IOException {
+  public boolean exists() {
     return azureClient.exists(key);
   }
 
-  public void remove() throws IOException {
+  public void remove() {
     azureClient.delete(key);
   }
 

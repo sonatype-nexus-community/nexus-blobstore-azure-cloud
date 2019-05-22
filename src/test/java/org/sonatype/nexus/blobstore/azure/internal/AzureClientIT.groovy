@@ -1,14 +1,25 @@
+/*
+ * Sonatype Nexus (TM) Open Source Version
+ * Copyright (c) 2019-present Sonatype, Inc.
+ * All rights reserved. Includes the third-party code listed at http://links.sonatype.com/products/nexus/oss/attributions.
+ *
+ * This program and the accompanying materials are made available under the terms of the Eclipse Public License Version 1.0,
+ * which accompanies this distribution and is available at http://www.eclipse.org/legal/epl-v10.html.
+ *
+ * Sonatype Nexus (TM) Professional Version is available from Sonatype, Inc. "Sonatype" and "Sonatype Nexus" are trademarks
+ * of Sonatype, Inc. Apache Maven is a trademark of the Apache Software Foundation. M2eclipse is a trademark of the
+ * Eclipse Foundation. All other trademarks are the property of their respective owners.
+ */
 package org.sonatype.nexus.blobstore.azure.internal
 
 import java.nio.charset.Charset
 
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 
-import io.reactivex.Observable
 import org.apache.commons.io.IOUtils
 import spock.lang.Specification
 
-class AzureClientTest
+class AzureClientIT
     extends Specification
 {
   private AzureClient client
@@ -21,7 +32,7 @@ class AzureClientTest
             (AzureBlobStore.CONTAINER_NAME_KEY): UUID.randomUUID().toString(),
         ]
     ])
-    client = new AzureStorageClientFactory(2).create(configuration)
+    client = new AzureStorageClientFactory(1000).create(configuration)
     this.client.createContainer()
   }
 
@@ -30,10 +41,7 @@ class AzureClientTest
   }
 
   def "It will create and get a file"() {
-    given: 'A client'
-
-
-    and: 'A blob'
+    given: 'A blob'
       def blobName = 'testBlob'
       def blobPath = "${blobName}.properties"
       String data = 'Hello world!' * 200
@@ -61,13 +69,6 @@ class AzureClientTest
     then: 'The copy exists'
       client.exists(blobNamePathCopy)
 
-    and: 'The client can list the files'
-      Observable<String> files = client.listBlobs('',
-          { blobItem -> blobItem.endsWith(AzureBlobStore.BLOB_ATTRIBUTE_SUFFIX) })
-      def results = []
-      files.blockingForEach({ results.add(it) })
-      results == ['testBlob', 'testBlob_copy']
-
     when: 'The blob and its copy are deleted'
       client.delete(blobPath)
       client.delete(blobNamePathCopy)
@@ -89,10 +90,19 @@ class AzureClientTest
   }
 
   def "It will list files"() {
-    expect:
+    given: 'some blobs'
+      assert client.listFiles('path/').isEmpty().blockingGet()
       client.create('file1.txt', new ByteArrayInputStream('helloworld'.bytes))
       client.create('file2.txt', new ByteArrayInputStream('helloworld'.bytes))
+      client.create('path/file1.txt', new ByteArrayInputStream('helloworld'.bytes))
+      client.create('path/file2.txt', new ByteArrayInputStream('helloworld'.bytes))
+    when:
       def files = client.listFiles('', { x -> x.endsWith('.txt') })
-      files.blockingIterable().iterator().collect() == ['file1.txt', 'file2.txt']
+    then: 'all to be returned with no prefix'
+      files.blockingIterable().iterator().collect() == ['file1.txt', 'file2.txt', 'path/file1.txt', 'path/file2.txt']
+    when:
+      files = client.listFiles('path/', { x -> x.endsWith('.txt') })
+    then:
+      files.blockingIterable().iterator().collect() == ['path/file1.txt', 'path/file2.txt']
   }
 }
