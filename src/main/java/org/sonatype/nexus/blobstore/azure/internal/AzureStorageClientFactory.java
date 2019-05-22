@@ -23,12 +23,9 @@ import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 
 import com.microsoft.azure.storage.blob.ContainerURL;
-import com.microsoft.azure.storage.blob.PipelineOptions;
 import com.microsoft.azure.storage.blob.ServiceURL;
 import com.microsoft.azure.storage.blob.SharedKeyCredentials;
 import com.microsoft.rest.v2.http.HttpPipeline;
-import com.microsoft.rest.v2.http.HttpPipelineLogLevel;
-import com.microsoft.rest.v2.http.Slf4jLogger;
 
 import static com.microsoft.azure.storage.blob.StorageURL.createPipeline;
 import static java.lang.String.format;
@@ -39,7 +36,7 @@ import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.CONFIG_
 import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.CONTAINER_NAME_KEY;
 
 /**
- *
+ *  Creates azure client with settings from configuration
  */
 @Named
 public class AzureStorageClientFactory
@@ -55,18 +52,13 @@ public class AzureStorageClientFactory
   public AzureClient create(final BlobStoreConfiguration blobStoreConfiguration)
       throws MalformedURLException, InvalidKeyException
   {
-
     String accountName = blobStoreConfiguration.attributes(CONFIG_KEY).get(ACCOUNT_NAME_KEY, String.class);
     String accountKey = blobStoreConfiguration.attributes(CONFIG_KEY).get(ACCOUNT_KEY_KEY, String.class);
     String containerName = blobStoreConfiguration.attributes(CONFIG_KEY).get(CONTAINER_NAME_KEY, String.class);
 
-    SharedKeyCredentials credential = new SharedKeyCredentials(accountName, accountKey);
-    // TODO: This doesn't seem to help reduce logging spam...
-    PipelineOptions pipelineOptions = new PipelineOptions()
-        .withLogger(new Slf4jLogger(log).withMinimumLogLevel(HttpPipelineLogLevel.OFF));
-    HttpPipeline pipeline = createPipeline(credential, pipelineOptions);
-    URL u = new URL(format(ROOT, "https://%s.blob.core.windows.net", accountName));
-    ServiceURL serviceURL = new ServiceURL(u, pipeline);
+    HttpPipeline pipeline = createPipeline(new SharedKeyCredentials(accountName, accountKey));
+    URL url = new URL(format(ROOT, "https://%s.blob.core.windows.net", accountName));
+    ServiceURL serviceURL = new ServiceURL(url, pipeline);
     ContainerURL containerURL = serviceURL.createContainerURL(containerName);
     return new AzureClient(containerURL, chunkSize, containerName);
   }

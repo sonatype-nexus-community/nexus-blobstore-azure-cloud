@@ -35,16 +35,25 @@ Building
 --------
 To build the project and generate the bundle use Maven:
 
-    mvn clean install -DskipTests
+    mvn clean package
 
 Creating Docker Image bundled with Azure Storage Plugin
 -------------------------------------------------------
+To create a docker image and run it with the Azaure Storage plugin baked in, run the following commands: 
 
+    mvn clean package
     docker build -t nexus3_azure .
+    docker run -d -p 8081:8081 --name nexus3azure -v nexus3azure-data:/nexus-data nxrm_azure:latest
+    
 
 Integration Tests
 -----------------
-TODO
+To run integration commands active the `it` profile and include the system properties `nxrm.azure.accountName` and 
+`Dnxrm.azure.accountKey`. Integration tests will create temporary storage containers and tests should cleanup when 
+complete. If you're running tests often check your storage account because it is likely that some containers may be left
+behind and not properly cleanup up by the tests. 
+
+     mvn clean install -P it -Dnxrm.azure.accountName=<accountName> -Dnxrm.azure.accountKey=<accountKey>
 
 
 Azure Cloud Storage Permissions
@@ -71,7 +80,8 @@ to the open source community (read: you!)
 
 Remember:
 
-* Use this contribution at the risk tolerance that you have
+* Use this contribution at the risk tolerance that you have. 
+* There are some incomplete features and known issues.
 * Do NOT file Sonatype support tickets related to Azure Cloud support
 * DO file issues here on GitHub, so that the community can pitch in
 
