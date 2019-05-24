@@ -127,11 +127,12 @@ class AzureBlobStoreIT
       azureBlobStore.getBlobAttributes(blobId.get()).isDeleted()
       azureBlobStore.getBlobAttributes(new AzureAttributesLocation(azureBlobStore.attributePath(blobId.get()))).
           isDeleted()
-    //TODO: test soft deletion
-      //when: 'the blob store is compacted'
-      //  azureBlobStore.compact()
-      //then: 'the soft deleted blobs are removed'
-      //  !azureBlobStore.exists(blobId.get())
+      azureBlobStore.softDeletes().browse().collect(toList()).contains(blobId.get())
+    when: 'the blob store is compacted'
+      azureBlobStore.compact()
+    then: 'the soft deleted blobs are removed'
+      !azureBlobStore.exists(blobId.get())
+      !azureBlobStore.softDeletes().browse().collect(toList()).contains(blobId.get())
   }
 
   def "Missing blobs will not exist"() {
