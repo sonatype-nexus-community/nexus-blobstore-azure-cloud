@@ -17,8 +17,12 @@ import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver
 import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.AzureAttributesLocation
+import org.sonatype.nexus.blobstore.azure.internal.db.OrientDeletedBlobEntityAdapter
+import org.sonatype.nexus.blobstore.azure.internal.db.OrientDeletedBlobIndex
 import org.sonatype.nexus.common.log.DryRunPrefix
+import org.sonatype.nexus.orient.testsupport.DatabaseInstanceRule
 
+import org.junit.Rule
 import spock.lang.Specification
 
 import static java.util.stream.Collectors.toList
@@ -30,6 +34,9 @@ class AzureBlobStoreIT
   private AzureBlobStore azureBlobStore
 
   private AzureClient azureClient
+
+  @Rule
+  public DatabaseInstanceRule database = DatabaseInstanceRule.inMemory("azureTest")
 
   void setup() {
     BlobStoreConfiguration configuration = new BlobStoreConfiguration(
@@ -46,10 +53,13 @@ class AzureBlobStoreIT
     BlobIdLocationResolver resolver = new DefaultBlobIdLocationResolver()
     AzureBlobStoreMetricsStore storeMetrics = Mock(AzureBlobStoreMetricsStore)
     DryRunPrefix dryRunPrefix = new DryRunPrefix("dr")
+    DeletedBlobIndex deletedBlobIndex = new OrientDeletedBlobIndex(new OrientDeletedBlobEntityAdapter(),
+        database.instanceProvider)
+    deletedBlobIndex.start()
 
     def factory = new AzureStorageClientFactory(20)
     azureClient = factory.create(configuration)
-    azureBlobStore = new AzureBlobStore(factory, resolver, storeMetrics, dryRunPrefix)
+    azureBlobStore = new AzureBlobStore(factory, resolver, storeMetrics, dryRunPrefix, deletedBlobIndex)
     this.azureBlobStore.init(configuration)
     this.azureBlobStore.start()
   }

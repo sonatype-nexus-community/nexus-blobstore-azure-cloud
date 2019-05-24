@@ -13,12 +13,16 @@ import org.sonatype.nexus.common.app.ManagedLifecycle;
 import org.sonatype.nexus.common.app.ManagedLifecycle.Phase;
 import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
 import org.sonatype.nexus.orient.DatabaseInstance;
+import org.sonatype.nexus.orient.transaction.OrientOperations;
+import org.sonatype.nexus.transaction.Operations;
+
+import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.stream.StreamSupport.stream;
 import static org.sonatype.nexus.orient.DatabaseInstanceNames.COMPONENT;
-import static org.sonatype.nexus.orient.transaction.OrientTransactional.inTx;
 import static org.sonatype.nexus.orient.transaction.OrientTransactional.inTxRetry;
+import static org.sonatype.nexus.orient.transaction.OrientTransactional.operation;
 
 /**
  * OrientDB implementation for the {@link DeletedBlobIndex}. This will leverage the NXRM database to track deleted
@@ -49,15 +53,17 @@ public class OrientDeletedBlobIndex
   protected void doStart() throws Exception {
     super.doStart();
 
-    inTx(database).run(adapter::register);
+    try (ODatabaseDocumentTx db = database.get().connect()) {
+      adapter.register(db);
+    }
   }
 
   @Override
   public void add(final BlobId blobId) {
-    BlobIdEntity blobIdMetadataNode = adapter.newEntity();
-    blobIdMetadataNode.setBlobId(blobId.asUniqueString());
+    BlobIdEntity blobIdEntity = adapter.newEntity();
+    blobIdEntity.setBlobId(blobId.asUniqueString());
 
-    inTxRetry(database).run(db -> adapter.addEntity(db, blobIdMetadataNode));
+    inTxRetry(database).run(db -> adapter.addEntity(db, blobIdEntity));
   }
 
   @Override
