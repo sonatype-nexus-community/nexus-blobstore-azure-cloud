@@ -29,6 +29,6 @@ public class AzureLogCustomizer
   @Override
   public void customize(final Configuration configuration) {
     // limit noisy Azure logger
-    configuration.setLoggerLevel("zz.com.microsoft.azure.storage.blob.LoggingFactory", LoggerLevel.WARN);
+    configuration.setLoggerLevel("com.microsoft.azure.storage.blob.LoggingFactory", LoggerLevel.WARN);
   }
 }
