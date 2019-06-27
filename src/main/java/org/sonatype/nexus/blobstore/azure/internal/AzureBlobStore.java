@@ -14,9 +14,7 @@ package org.sonatype.nexus.blobstore.azure.internal;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.nio.file.Path;
-import java.security.InvalidKeyException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.locks.Lock;
@@ -78,6 +76,8 @@ public class AzureBlobStore
   public static final String ACCOUNT_KEY_KEY = "account_key";
 
   public static final String CONTAINER_NAME_KEY = "container_name";
+
+  public static final String CLIENT_TYPE = "client_type";
 
   public static final String BLOB_CONTENT_SUFFIX = ".bytes";
 
@@ -387,7 +387,7 @@ public class AzureBlobStore
         azureClient.createContainer();
       }
     }
-    catch (MalformedURLException | InvalidKeyException e) {
+    catch (Exception e) {
       throw new BlobStoreException("Unable to initialize blob store container", e, null);
     }
   }

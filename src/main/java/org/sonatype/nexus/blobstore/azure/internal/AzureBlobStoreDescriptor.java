@@ -20,6 +20,7 @@ import org.sonatype.goodies.i18n.I18N;
 import org.sonatype.goodies.i18n.MessageBundle;
 import org.sonatype.nexus.blobstore.BlobStoreDescriptor;
 import org.sonatype.nexus.formfields.FormField;
+import org.sonatype.nexus.formfields.ItemselectFormField;
 import org.sonatype.nexus.formfields.PasswordFormField;
 import org.sonatype.nexus.formfields.StringTextFormField;
 
@@ -53,6 +54,11 @@ public class AzureBlobStoreDescriptor
     @DefaultMessage("The name of an existing container to be used for storage.")
     String containerNameHelp();
 
+    @DefaultMessage("Client Type")
+    String clientType();
+
+    @DefaultMessage("Type of client used for connections.")
+    String clientTypeHelp();
   }
 
   private static final Messages messages = I18N.create(Messages.class);
@@ -62,6 +68,8 @@ public class AzureBlobStoreDescriptor
   private final FormField accountKey;
 
   private final FormField containerName;
+
+  private final ItemselectFormField clientType;
 
   public AzureBlobStoreDescriptor() {
     this.accountName = new StringTextFormField(AzureBlobStore.ACCOUNT_NAME_KEY,
@@ -76,6 +84,13 @@ public class AzureBlobStoreDescriptor
         messages.containerNameLabel(),
         messages.containerNameHelp(),
         true);
+
+    this.clientType = new ItemselectFormField(AzureBlobStore.CLIENT_TYPE,
+        messages.clientType(),
+        messages.clientTypeHelp(),
+        true,
+        "Sync"
+    );
   }
 
   @Override
@@ -85,6 +100,6 @@ public class AzureBlobStoreDescriptor
 
   @Override
   public List<FormField> getFormFields() {
-    return asList(accountName, accountKey, containerName);
+    return asList(accountName, accountKey, containerName, clientType);
   }
 }
