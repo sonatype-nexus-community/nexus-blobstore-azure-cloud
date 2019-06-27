@@ -105,64 +105,10 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-shade-plugin</artifactId>
-        <version>3.0.0</version>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>shade</goal>
-            </goals>
-            <configuration>
-              <shadedArtifactAttached>true</shadedArtifactAttached>
-              <shadedClassifierName>shaded</shadedClassifierName>
-              <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
-              <transformers>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-              </transformers>
-              <artifactSet>
-                <excludes>
-                  <exclude>*:slf4j-api</exclude>
-                </excludes>
-              </artifactSet>
-              <relocations>
-                <relocation>
-                  <pattern>org.codehaus.stax2.</pattern>
-                  <shadedPattern>zz.org.codehaus.stax2.</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>com.ctc.wstx.</pattern>
-                  <shadedPattern>zz.com.ctc.wstx.</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>com.microsoft.</pattern>
-                  <shadedPattern>zz.com.microsoft.</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>com.fasterxml.</pattern>
-                  <shadedPattern>zz.com.fasterxml.</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>io.netty.</pattern>
-                  <shadedPattern>zz.io.netty.</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>org.reactivestreams.</pattern>
-                  <shadedPattern>zz.org.reactivestreams.</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>io.reactivex.</pattern>
-                  <shadedPattern>zz.io.reactivex.</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>com.github.davidmoten.</pattern>
-                  <shadedPattern>zz.com.github.davidmoten.</shadedPattern>
-                </relocation>
-              </relocations>
-            </configuration>
-          </execution>
-        </executions>
+        <groupId>org.apache.karaf.tooling</groupId>
+        <artifactId>karaf-maven-plugin</artifactId>
+        <version>4.2.5</version>
+        <extensions>true</extensions>
       </plugin>
 
       <plugin>
