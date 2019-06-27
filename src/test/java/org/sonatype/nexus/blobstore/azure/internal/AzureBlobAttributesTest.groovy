@@ -21,7 +21,7 @@ class AzureBlobAttributesTest
     given: 'the blob attributes'
       def content = '''creationTime=10000000\nsize=100000000\nsha1=asdf'''
 
-      def azureClient = Mock(AzureClient)
+      def azureClient = Mock(ReactiveAzureClient)
       def subject = new AzureBlobAttributes(azureClient, 'key')
     when: 'the object does not exist'
       1 * azureClient.exists('key') >> false

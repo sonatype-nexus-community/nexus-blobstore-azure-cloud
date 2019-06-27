@@ -49,7 +49,7 @@ public class AzureStorageClientFactory
     this.chunkSize = chunkSize;
   }
 
-  public AzureClient create(final BlobStoreConfiguration blobStoreConfiguration)
+  public ReactiveAzureClient create(final BlobStoreConfiguration blobStoreConfiguration)
       throws MalformedURLException, InvalidKeyException
   {
     String accountName = blobStoreConfiguration.attributes(CONFIG_KEY).get(ACCOUNT_NAME_KEY, String.class);
@@ -60,6 +60,6 @@ public class AzureStorageClientFactory
     URL url = new URL(format(ROOT, "https://%s.blob.core.windows.net", accountName));
     ServiceURL serviceURL = new ServiceURL(url, pipeline);
     ContainerURL containerURL = serviceURL.createContainerURL(containerName);
-    return new AzureClient(containerURL, chunkSize, containerName);
+    return new ReactiveAzureClient(containerURL, chunkSize, containerName);
   }
 }

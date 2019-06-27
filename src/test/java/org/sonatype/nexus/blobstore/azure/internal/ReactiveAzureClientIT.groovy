@@ -19,10 +19,10 @@ import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.apache.commons.io.IOUtils
 import spock.lang.Specification
 
-class AzureClientIT
+class ReactiveAzureClientIT
     extends Specification
 {
-  private AzureClient client
+  private ReactiveAzureClient client
 
   def setup() {
     def configuration = new BlobStoreConfiguration(attributes: [

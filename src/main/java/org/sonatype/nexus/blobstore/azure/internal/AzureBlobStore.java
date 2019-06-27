@@ -19,11 +19,8 @@ import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Spliterator;
-import java.util.Spliterators;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -52,7 +49,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
-import io.reactivex.Observable;
 import org.joda.time.DateTime;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -400,7 +396,7 @@ public class AzureBlobStore
   @Guarded(by = {NEW, STOPPED, FAILED})
   public void remove() {
     // TODO delete bucket only if it is empty
-    Boolean contentEmpty = azureClient.listFiles("content/").isEmpty().blockingGet();
+    boolean contentEmpty = azureClient.listFiles("content/").findAny().isPresent();
     if (contentEmpty) {
       new AzurePropertiesFile(azureClient, METADATA_FILENAME).remove();
       storeMetrics.remove();
@@ -411,22 +407,16 @@ public class AzureBlobStore
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getBlobIdStream() {
-    return toStream(azureClient.listFiles(CONTENT_PREFIX, this::blobItemPredicate))
+    return azureClient.listFiles(CONTENT_PREFIX, this::blobItemPredicate)
         .map(AzureAttributesLocation::new)
         .map(this::getBlobIdFromAttributeFilePath)
         .map(BlobId::new);
   }
 
-  private Stream<String> toStream(final Observable<String> map) {
-    return StreamSupport.stream(
-        Spliterators.spliteratorUnknownSize(map.blockingIterable().iterator(), Spliterator.ORDERED),
-        false);
-  }
-
   @Override
   @Guarded(by = STARTED)
   public Stream<BlobId> getDirectPathBlobIdStream(final String prefix) {
-    return toStream(azureClient.listFiles(DIRECT_PATH_PREFIX, this::blobItemPredicate))
+    return azureClient.listFiles(DIRECT_PATH_PREFIX, this::blobItemPredicate)
         .map(this::attributePathToDirectPathBlobId);
   }
 
