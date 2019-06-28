@@ -71,13 +71,13 @@ public class AzureBlobStore
 
   public static final String CONFIG_KEY = TYPE.toLowerCase();
 
-  public static final String ACCOUNT_NAME_KEY = "account_name";
+  public static final String ACCOUNT_NAME_KEY = "accountName";
 
-  public static final String ACCOUNT_KEY_KEY = "account_key";
+  public static final String ACCOUNT_KEY_KEY = "accountKey";
 
-  public static final String CONTAINER_NAME_KEY = "container_name";
+  public static final String CONTAINER_NAME_KEY = "containerName";
 
-  public static final String CLIENT_TYPE = "client_type";
+  public static final String CLIENT_TYPE = "clientType";
 
   public static final String BLOB_CONTENT_SUFFIX = ".bytes";
 

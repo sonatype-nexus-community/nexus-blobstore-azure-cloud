@@ -20,7 +20,7 @@
   <parent>
     <groupId>org.sonatype.nexus.plugins</groupId>
     <artifactId>nexus-plugins</artifactId>
-    <version>3.16.1-02</version>
+    <version>3.18.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>nexus-blobstore-azure-cloud</artifactId>
@@ -62,6 +62,17 @@
       <groupId>org.sonatype.goodies</groupId>
       <artifactId>goodies-testsupport</artifactId>
       <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.sonatype.nexus</groupId>
+      <artifactId>nexus-extdirect</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.sonatype.nexus</groupId>
+      <artifactId>nexus-rapture</artifactId>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
@@ -126,7 +137,7 @@
             <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
             <Export-Package>
               org.sonatype.nexus.blobstore.azure,
-              com.microsoft.azure.storage.blob
+              com.microsoft.azure.storage.*
             </Export-Package>
             <Import-Package>
               *;resolution:=optional
@@ -134,6 +145,23 @@
             <DynamicImport-Package>*</DynamicImport-Package>
           </instructions>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.sonatype.nexus.buildsupport</groupId>
+        <artifactId>extjs-maven-plugin</artifactId>
+        <configuration>
+          <namespace>NX.azureblobstore</namespace>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.sonatype.plugins</groupId>
+        <artifactId>yuicompressor-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>plugin-css</id>
+            <phase>none</phase> <!-- no css -->
+          </execution>
+        </executions>
       </plugin>
 
     </plugins>
