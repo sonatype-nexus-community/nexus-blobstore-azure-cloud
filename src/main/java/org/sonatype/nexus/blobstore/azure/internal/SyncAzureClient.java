@@ -3,8 +3,6 @@ package org.sonatype.nexus.blobstore.azure.internal;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -14,6 +12,8 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import org.sonatype.goodies.common.ComponentSupport;
 
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.blob.BlockEntry;
@@ -26,6 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class SyncAzureClient
+    extends ComponentSupport
     implements AzureClient
 {
   private final CloudBlobClient serviceClient;
@@ -43,23 +44,38 @@ public class SyncAzureClient
 
   @Override
   public void create(final String path, final InputStream data) {
+    log.debug("Creating blob {}", path);
     try {
       CloudBlockBlob blob = getCloudBlobContainer().getBlockBlobReference(path);
-
       List<BlockEntry> blockList = new ArrayList<>();
+      int totalRead = 0;
+      int bytesRead;
       byte[] buffer = new byte[chunkSize];
-      while ((data.available() > 0)) {
-        String base64BlockId = createBase64BlockId();
-        blockList.add(new BlockEntry(base64BlockId));
-        int read = data.read(buffer);
-        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(buffer, 0, read);
-        blob.uploadBlock(base64BlockId, byteArrayInputStream, read);
+      while ((bytesRead = data.read(buffer, totalRead, buffer.length - totalRead)) != -1) {
+        totalRead += bytesRead;
+        if (totalRead == buffer.length) { // entire buffer was filled so upload block
+          blockList.add(uploadBlock(blob, totalRead, buffer));
+          totalRead = 0; // reset totalRead so buffer will be reused
+        }
       }
+      if (totalRead > 0) { // write the last block if it exists
+        blockList.add(uploadBlock(blob, totalRead, buffer));
+      }
+      log.debug("Blocks committed for {} -> {}", path, blockList.size());
       blob.commitBlockList(blockList);
     }
     catch (URISyntaxException | StorageException | IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private BlockEntry uploadBlock(final CloudBlockBlob blob, final int length, final byte[] data)
+      throws StorageException, IOException
+  {
+    String base64BlockId = createBase64BlockId();
+    ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(data, 0, length);
+    blob.uploadBlock(base64BlockId, byteArrayInputStream, length);
+    return new BlockEntry(base64BlockId);
   }
 
   private static String createBase64BlockId() {
@@ -71,14 +87,11 @@ public class SyncAzureClient
   }
 
   @Override
-  public InputStream get(final String path) throws IOException {
+  public InputStream get(final String path) {
+    log.debug("Getting blob {}", path);
     try {
       CloudBlockBlob blob = getCloudBlobContainer().getBlockBlobReference(path);
-      PipedInputStream in = new PipedInputStream();
-      final PipedOutputStream out = new PipedOutputStream(in);
-      blob.download(out);
-      out.close();
-      return in;
+      return blob.openInputStream();
     }
     catch (StorageException | URISyntaxException e) {
       throw new RuntimeException(e);
@@ -89,7 +102,9 @@ public class SyncAzureClient
   public boolean exists(final String path) {
     try {
       CloudBlockBlob blob = getCloudBlobContainer().getBlockBlobReference(path);
-      return blob.exists();
+      boolean exists = blob.exists();
+      log.debug("{} exists? -> {}", path, exists);
+      return exists;
     }
     catch (URISyntaxException | StorageException e) {
       throw new RuntimeException(e);
@@ -98,6 +113,7 @@ public class SyncAzureClient
 
   @Override
   public void delete(final String path) {
+    log.debug("Deleting blob {}", path);
     try {
       CloudBlockBlob blob = getCloudBlobContainer().getBlockBlobReference(path);
       blob.delete();
@@ -109,6 +125,7 @@ public class SyncAzureClient
 
   @Override
   public void copy(final String sourcePath, final String destination) {
+    log.debug("Copying blob {} => {}", sourcePath, destination);
     try {
       CloudBlockBlob src = getCloudBlobContainer().getBlockBlobReference(sourcePath);
       CloudBlockBlob dest = getCloudBlobContainer().getBlockBlobReference(destination);

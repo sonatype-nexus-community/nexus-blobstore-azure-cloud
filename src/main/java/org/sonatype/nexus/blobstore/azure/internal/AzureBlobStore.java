@@ -121,7 +121,7 @@ public class AzureBlobStore
 
   @Override
   protected void doStart() throws Exception {
-    log.info("starting");
+    log.debug("Starting");
     AzurePropertiesFile metadata = new AzurePropertiesFile(azureClient, METADATA_FILENAME);
     if (metadata.exists()) {
       metadata.load();
@@ -575,7 +575,7 @@ public class AzureBlobStore
     }
 
     @Override
-    public InputStream getInputStream() {
+    public InputStream doGetInputStream() {
       try {
         return azureClient.get(contentPath(getId()));
       }
