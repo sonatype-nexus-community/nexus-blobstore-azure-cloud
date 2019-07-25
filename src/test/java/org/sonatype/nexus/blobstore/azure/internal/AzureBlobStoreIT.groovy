@@ -29,7 +29,7 @@ class AzureBlobStoreIT
 {
   private AzureBlobStore azureBlobStore
 
-  private AzureClient azureClient
+  private ReactiveAzureClient azureClient
 
   void setup() {
     BlobStoreConfiguration configuration = new BlobStoreConfiguration(

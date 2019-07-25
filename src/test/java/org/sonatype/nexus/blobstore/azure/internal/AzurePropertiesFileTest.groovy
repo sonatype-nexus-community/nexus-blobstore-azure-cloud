@@ -27,7 +27,7 @@ class AzurePropertiesFileTest
       def initialPropertyText = 'myProperty=foo'
       def key = 'some_path.properties'
 
-      def azureClient = Mock(AzureClient)
+      def azureClient = Mock(ReactiveAzureClient)
       def subject = new AzurePropertiesFile(azureClient, key)
     when: 'it is loaded'
       subject.load()
@@ -48,7 +48,7 @@ class AzurePropertiesFileTest
 
   def "properties files exist based on client"() {
     given: 'a properties file'
-      def azureClient = Mock(AzureClient)
+      def azureClient = Mock(ReactiveAzureClient)
       def subject = new AzurePropertiesFile(azureClient, 'key')
     when: 'the client reports the object exists'
       1 * azureClient.exists('key') >> true
