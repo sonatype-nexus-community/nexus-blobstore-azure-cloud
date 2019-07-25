@@ -39,6 +39,7 @@ import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 import org.sonatype.nexus.blobstore.api.BlobStoreException;
 import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
 import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
+import org.sonatype.nexus.blobstore.azure.internal.db.OrientDeletedBlobIndex;
 import org.sonatype.nexus.common.log.DryRunPrefix;
 import org.sonatype.nexus.common.stateguard.Guarded;
 
@@ -106,17 +107,21 @@ public class AzureBlobStore
 
   private LoadingCache<BlobId, AzureBlob> liveBlobs;
 
+  private DeletedBlobIndex deletedBlobIndex;
+
   @Inject
   public AzureBlobStore(final AzureStorageClientFactory azureStorageClientFactory,
                         final BlobIdLocationResolver blobIdLocationResolver,
                         final AzureBlobStoreMetricsStore metricsStore,
-                        final DryRunPrefix dryRunPrefix)
+                        final DryRunPrefix dryRunPrefix,
+                        final @Named(OrientDeletedBlobIndex.NAME) DeletedBlobIndex deletedBlobIndex)
   {
     super(blobIdLocationResolver, dryRunPrefix);
     this.azureStorageClientFactory = checkNotNull(azureStorageClientFactory);
     this.blobIdLocationResolver = checkNotNull(blobIdLocationResolver);
     this.storeMetrics = metricsStore;
     this.dryRunPrefix = dryRunPrefix;
+    this.deletedBlobIndex = checkNotNull(deletedBlobIndex);
   }
 
   @Override
@@ -311,11 +316,7 @@ public class AzureBlobStore
       blobAttributes.setDeletedReason(reason);
       blobAttributes.store();
 
-      //TODO: Soft delete the blobs some how.
-      // Account level - https://docs.microsoft.com/en-us/azure/storage/blobs/storage-blob-soft-delete
-      // Rename?
-      // Store in an Azure datastore?
-      // Something else?
+      deletedBlobIndex.add(blobId);
       blob.markStale();
 
       return true;
@@ -341,6 +342,7 @@ public class AzureBlobStore
 
       azureClient.delete(blobPath);
       azureClient.delete(attributePath);
+      deletedBlobIndex.remove(blobId);
 
       if (contentSize != null) {
         storeMetrics.recordDeletion(contentSize);
@@ -364,7 +366,7 @@ public class AzureBlobStore
 
   @Override
   protected void doCompact(@Nullable final BlobStoreUsageChecker inUseChecker) {
-
+    deletedBlobIndex.browse().forEach(this::deleteHard);
   }
 
   @Override
@@ -542,6 +544,8 @@ public class AzureBlobStore
     return getLocation(id) + BLOB_ATTRIBUTE_SUFFIX;
   }
 
+  @VisibleForTesting
+  protected DeletedBlobIndex softDeletes() { return deletedBlobIndex; }
   /**
    * Returns the location for a blob ID based on whether or not the blob ID is for a temporary or permanent blob.
    */
