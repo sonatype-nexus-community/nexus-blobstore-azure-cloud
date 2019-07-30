@@ -579,7 +579,7 @@ public class AzureBlobStore
     }
 
     @Override
-    public InputStream doGetInputStream() {
+    public InputStream getInputStream() {
       try {
         return azureClient.get(contentPath(getId()));
       }
