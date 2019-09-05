@@ -20,7 +20,6 @@ class SyncAzureClientIT
             (AzureBlobStore.ACCOUNT_NAME_KEY)  : System.getProperty('nxrm.azure.accountName'),
             (AzureBlobStore.ACCOUNT_KEY_KEY)   : System.getProperty('nxrm.azure.accountKey'),
             (AzureBlobStore.CONTAINER_NAME_KEY): UUID.randomUUID().toString(),
-            (AzureBlobStore.CLIENT_TYPE): 'sync',
         ]
     ])
     client = new AzureStorageClientFactory(10000).create(configuration)

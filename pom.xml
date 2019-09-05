@@ -20,7 +20,7 @@
   <parent>
     <groupId>org.sonatype.nexus.plugins</groupId>
     <artifactId>nexus-plugins</artifactId>
-    <version>3.18.0-01</version>
+    <version>3.19.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>nexus-blobstore-azure-cloud</artifactId>
@@ -49,6 +49,18 @@
     <dependency>
       <groupId>org.sonatype.nexus</groupId>
       <artifactId>nexus-blobstore</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.sonatype.nexus</groupId>
+      <artifactId>nexus-guice-servlet</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.sonatype.nexus</groupId>
+      <artifactId>nexus-extdirect</artifactId>
       <scope>provided</scope>
     </dependency>
 
@@ -101,24 +113,6 @@
 
     <dependency>
       <groupId>com.microsoft.azure</groupId>
-      <artifactId>azure-storage-blob</artifactId>
-      <version>${azure-storage-blob.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.microsoft.rest.v2</groupId>
-      <artifactId>client-runtime</artifactId>
-      <version>2.1.1</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.github.davidmoten</groupId>
-      <artifactId>rxjava2-extras</artifactId>
-      <version>0.1.30</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.microsoft.azure</groupId>
       <artifactId>azure-storage</artifactId>
       <version>8.3.0</version>
     </dependency>
@@ -136,7 +130,6 @@
       <plugin>
         <groupId>org.apache.karaf.tooling</groupId>
         <artifactId>karaf-maven-plugin</artifactId>
-        <version>4.2.5</version>
         <extensions>true</extensions>
       </plugin>
 

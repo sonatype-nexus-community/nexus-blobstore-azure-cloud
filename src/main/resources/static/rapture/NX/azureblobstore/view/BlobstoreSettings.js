@@ -26,35 +26,6 @@ Ext.define('NX.azureblobstore.view.BlobstoreSettings', {
 
   settingsForm: [
     {
-      xtype: 'combo',
-      name: 'property_clientType',
-      fieldLabel: NX.I18n.get('AzureBlobstore_ClientType_FieldLabel'),
-      helpText: NX.I18n.get('AzureBlobstore_ClientType_HelpText'),
-      itemCls: 'required-field',
-      displayField: 'name',
-      valueField: 'id',
-      editable: false,
-      forceSelection: true,
-      queryMode: 'local',
-      triggerAction: 'all',
-      emptyText: 'Select...',
-      selectOnFocus: false,
-      allowBlank: false,
-      listeners: {
-        added: function() {
-          var me = this;
-          me.getStore().load();
-        },
-        afterrender: function() {
-          var me = this;
-          if (!me.getValue()) {
-            me.setValue('Sync');
-          }
-        }
-      },
-      store: 'NX.azureblobstore.store.ClientType'
-    },
-    {
       xtype:'textfield',
       name: 'property_accountName',
       fieldLabel: NX.I18n.get('AzureBlobstore_AccountName_FieldLabel'),

@@ -31,10 +31,7 @@ Ext.define('NX.azureblobstore.app.PluginStrings', {
     AzureBlobstore_AccountKey_HelpText: 'Account key found under Access keys for the storage account.',
 
     AzureBlobstore_ContainerName_FieldLabel: 'Container Name',
-    AzureBlobstore_ContainerName_HelpText: 'The name of an existing container to be used for storage.',
-
-    AzureBlobstore_ClientType_FieldLabel: 'Client Type',
-    AzureBlobstore_ClientType_HelpText: 'Type of client used for connections.'
+    AzureBlobstore_ContainerName_HelpText: 'The name of an existing container to be used for storage.'
   }
 
 }, function(obj) {

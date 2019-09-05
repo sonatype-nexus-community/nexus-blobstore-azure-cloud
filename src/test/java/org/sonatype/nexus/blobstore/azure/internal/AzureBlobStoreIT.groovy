@@ -33,7 +33,7 @@ class AzureBlobStoreIT
 {
   private AzureBlobStore azureBlobStore
 
-  private ReactiveAzureClient azureClient
+  private AzureClient azureClient
 
   @Rule
   public DatabaseInstanceRule database = DatabaseInstanceRule.inMemory("azureTest")

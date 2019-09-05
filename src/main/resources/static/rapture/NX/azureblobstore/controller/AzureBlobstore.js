@@ -18,12 +18,6 @@
 Ext.define('NX.azureblobstore.controller.AzureBlobstore', {
   extend: 'NX.wizard.Controller',
 
-  stores: [
-    'NX.azureblobstore.store.ClientType'
-  ],
-  models: [
-    'NX.azureblobstore.model.ClientType'
-  ],
   views: [
     'NX.azureblobstore.view.BlobstoreSettings'
   ]

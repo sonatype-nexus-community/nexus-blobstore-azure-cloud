@@ -397,8 +397,7 @@ public class AzureBlobStore
   @Override
   @Guarded(by = {NEW, STOPPED, FAILED})
   public void remove() {
-    // TODO delete bucket only if it is empty
-    boolean contentEmpty = azureClient.listFiles("content/").findAny().isPresent();
+    boolean contentEmpty = !azureClient.listFiles("content/").findAny().isPresent();
     if (contentEmpty) {
       new AzurePropertiesFile(azureClient, METADATA_FILENAME).remove();
       storeMetrics.remove();
@@ -579,7 +578,7 @@ public class AzureBlobStore
     }
 
     @Override
-    public InputStream getInputStream() {
+    public InputStream doGetInputStream() {
       try {
         return azureClient.get(contentPath(getId()));
       }
