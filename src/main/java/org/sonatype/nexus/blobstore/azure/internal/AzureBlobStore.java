@@ -62,13 +62,13 @@ import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.St
 import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STOPPED;
 
 /**
- * Azure Cloud Storage backed {@link BlobStore}.
+ * Azure Blob Cloud Storage backed {@link BlobStore}.
  */
 @Named(AzureBlobStore.TYPE)
 public class AzureBlobStore
     extends BlobStoreSupport<AttributesLocation>
 {
-  public static final String TYPE = "Azure Cloud Storage";
+  public static final String TYPE = "Azure Blob Storage";
 
   public static final String CONFIG_KEY = TYPE.toLowerCase();
 
