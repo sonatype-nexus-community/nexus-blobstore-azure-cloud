@@ -12,14 +12,12 @@
     Eclipse Foundation. All other trademarks are the property of their respective owners.
 
 -->
-Nexus Repository Azure Cloud Storage Blobstore
+Nexus Repository Azure Blob Storage Blobstore
 ==============================
 
 [![Join the chat at https://gitter.im/sonatype/nexus-developers](https://badges.gitter.im/sonatype/nexus-developers.svg)](https://gitter.im/sonatype/nexus-developers?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-This project adds [Azure Cloud Object Storage](https://cloud.Azure.com/storage/) backed blob stores to Sonatype Nexus 
-Repository 3.16 and later.  It allows Nexus Repository to store the components and assets in Azure Cloud instead of a
-local filesystem.
+This project adds [Azure Blob Storage](https://azure.microsoft.com/en-us/services/storage/blobs/) backed blob stores to Sonatype Nexus Repository 3.16 and later. It allows Nexus Repository to store the components and assets in Azure Blobs instead of a local filesystem.
 
 Contribution Guidelines
 -----------------------
@@ -37,9 +35,9 @@ To build the project and generate the bundle use Maven:
 
     mvn clean package
 
-Creating Docker Image bundled with Azure Storage Plugin
+Creating Docker Image bundled with Azure Blob Storage Plugin
 -------------------------------------------------------
-To create a docker image and run it with the Azaure Storage plugin baked in, run the following commands: 
+To create a docker image and run it with the Azure Blob Storage plugin baked in, run the following commands: 
 
     mvn clean package
     docker build -t nexus3_azure .
@@ -48,7 +46,7 @@ To create a docker image and run it with the Azaure Storage plugin baked in, run
 
 Integration Tests
 -----------------
-To run integration commands active the `it` profile and include the system properties `nxrm.azure.accountName` and 
+To run integration commands, activate the `it` profile and include the system properties `nxrm.azure.accountName` and 
 `Dnxrm.azure.accountKey`. Integration tests will create temporary storage containers and tests should cleanup when 
 complete. If you're running tests often check your storage account because it is likely that some containers may be left
 behind and not properly cleanup up by the tests. 
@@ -56,18 +54,18 @@ behind and not properly cleanup up by the tests.
      mvn clean install -P it -Dnxrm.azure.accountName=<accountName> -Dnxrm.azure.accountKey=<accountKey>
 
 
-Azure Cloud Storage Permissions
+Azure Blob Storage Permissions
 --------------------------------
 TODO
 
-Azure Cloud Storage Authentication
+Azure Blob Storage Authentication
 -----------------------------------
 TODO
 
 
 Installation
 ------------
-While nexus is stopped, copy target/nexus-blobstore-azure-cloud-0.4.0-SNAPSHOT-shaded.jar in the deploy folder in your
+While nexus is stopped, copy target/nexus-blobstore-azure-cloud-0.5.0-SNAPSHOT-shaded.jar in the deploy folder in your
 nexus 3 distribution. Start nexus and the plugin will be installed.
 
 Log in as admin and create a new blobstore, selecting 'Azure Cloud Storage' as the type.
@@ -82,7 +80,7 @@ Remember:
 
 * Use this contribution at the risk tolerance that you have. 
 * There are some incomplete features and known issues.
-* Do NOT file Sonatype support tickets related to Azure Cloud support
+* Do NOT file Sonatype support tickets related to Azure blobstore support
 * DO file issues here on GitHub, so that the community can pitch in
 
 Phew, that was easier than I thought. Last but not least of all:
