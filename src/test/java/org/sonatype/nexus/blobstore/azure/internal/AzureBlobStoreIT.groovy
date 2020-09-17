@@ -14,6 +14,7 @@ package org.sonatype.nexus.blobstore.azure.internal
 
 import org.sonatype.nexus.blobstore.BlobIdLocationResolver
 import org.sonatype.nexus.blobstore.DefaultBlobIdLocationResolver
+import org.sonatype.nexus.blobstore.MockBlobStoreConfiguration
 import org.sonatype.nexus.blobstore.api.BlobId
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration
 import org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.AzureAttributesLocation
@@ -21,7 +22,6 @@ import org.sonatype.nexus.blobstore.azure.internal.db.OrientDeletedBlobEntityAda
 import org.sonatype.nexus.blobstore.azure.internal.db.OrientDeletedBlobIndex
 import org.sonatype.nexus.common.log.DryRunPrefix
 import org.sonatype.nexus.orient.testsupport.DatabaseInstanceRule
-import org.sonatype.nexus.repository.internal.blobstore.orient.OrientBlobStoreConfiguration
 
 import org.junit.Rule
 import spock.lang.Specification
@@ -40,7 +40,8 @@ class AzureBlobStoreIT
   public DatabaseInstanceRule database = DatabaseInstanceRule.inMemory("azureTest")
 
   void setup() {
-    BlobStoreConfiguration configuration = new OrientBlobStoreConfiguration(
+    new MockBlobStoreConfiguration()
+    BlobStoreConfiguration configuration = new MockBlobStoreConfiguration(
         name: 'azure',
         type: AzureBlobStore.TYPE,
         attributes: [

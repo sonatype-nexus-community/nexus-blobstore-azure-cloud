@@ -33,13 +33,13 @@ Building
 --------
 To build the project and generate the bundle use Maven:
 
-    mvn clean package
+    mvn clean package -PbuildKar
 
 Creating Docker Image bundled with Azure Blob Storage Plugin
 -------------------------------------------------------
 To create a docker image and run it with the Azure Blob Storage plugin baked in, run the following commands: 
 
-    mvn clean package
+    mvn clean package -PbuildKar
     docker build -t nexus3_azure .
     docker run -d -p 8081:8081 --name nexus3azure -v nexus3azure-data:/nexus-data nxrm_azure:latest
     

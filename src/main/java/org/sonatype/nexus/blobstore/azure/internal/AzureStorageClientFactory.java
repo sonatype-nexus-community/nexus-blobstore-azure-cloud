@@ -12,15 +12,18 @@
  */
 package org.sonatype.nexus.blobstore.azure.internal;
 
+import java.util.Locale;
+
 import javax.inject.Inject;
 import javax.inject.Named;
 
 import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 
-import com.microsoft.azure.storage.CloudStorageAccount;
+import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.azure.storage.common.StorageSharedKeyCredential;
 
-import static com.microsoft.azure.storage.CloudStorageAccount.parse;
 import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.ACCOUNT_KEY_KEY;
 import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.ACCOUNT_NAME_KEY;
 import static org.sonatype.nexus.blobstore.azure.internal.AzureBlobStore.CONFIG_KEY;
@@ -35,18 +38,28 @@ public class AzureStorageClientFactory
 {
   private final int chunkSize;
 
-  private static final String STORAGE_CONNECTION_STRING = "DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s";
+  private final int copyTimeout;
+
+  private final int listBlobsTimeout;
 
   @Inject
-  public AzureStorageClientFactory(@Named("${nexus.azure.blocksize:-5242880}") final int chunkSize) {
+  public AzureStorageClientFactory(@Named("${nexus.azure.blocksize:-5242880}") final int chunkSize,
+                                   @Named("${nexus.azure.copyTimeout_sec:-30}") final int copyTimeout,
+                                   @Named("${nexus.azure.listBlobsTimout_sec:-30}") final int listBlobsTimeout)
+  {
     this.chunkSize = chunkSize;
+    this.copyTimeout = copyTimeout;
+    this.listBlobsTimeout = listBlobsTimeout;
   }
 
   public AzureClient create(final BlobStoreConfiguration blobStoreConfiguration) throws Exception {
     String accountName = blobStoreConfiguration.attributes(CONFIG_KEY).get(ACCOUNT_NAME_KEY, String.class);
     String accountKey = blobStoreConfiguration.attributes(CONFIG_KEY).get(ACCOUNT_KEY_KEY, String.class);
     String containerName = blobStoreConfiguration.attributes(CONFIG_KEY).get(CONTAINER_NAME_KEY, String.class);
-    CloudStorageAccount account = parse(String.format(STORAGE_CONNECTION_STRING, accountName, accountKey));
-    return new SyncAzureClient(account.createCloudBlobClient(), chunkSize, containerName);
+    StorageSharedKeyCredential credential = new StorageSharedKeyCredential(accountName, accountKey);
+    String endpoint = String.format(Locale.ROOT, "https://%s.blob.core.windows.net", accountName);
+    BlobServiceClient storageClient = new BlobServiceClientBuilder().endpoint(endpoint).credential(credential)
+        .buildClient();
+    return new AzureClientImpl(storageClient, containerName, chunkSize, copyTimeout, listBlobsTimeout);
   }
 }

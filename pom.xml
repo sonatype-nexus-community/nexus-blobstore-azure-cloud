@@ -20,7 +20,7 @@
   <parent>
     <groupId>org.sonatype.nexus.plugins</groupId>
     <artifactId>nexus-plugins</artifactId>
-    <version>3.21.1-01</version>
+    <version>3.27.0-03</version>
   </parent>
 
   <artifactId>nexus-blobstore-azure-cloud</artifactId>
@@ -112,9 +112,9 @@
     </dependency>
 
     <dependency>
-      <groupId>com.microsoft.azure</groupId>
-      <artifactId>azure-storage</artifactId>
-      <version>8.6.0</version>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-storage-blob</artifactId>
+      <version>12.8.0</version>
     </dependency>
 
     <dependency>

@@ -2,20 +2,20 @@ package org.sonatype.nexus.blobstore.azure.internal
 
 import java.nio.charset.Charset
 
-import org.sonatype.nexus.repository.internal.blobstore.orient.OrientBlobStoreConfiguration
+import org.sonatype.nexus.blobstore.MockBlobStoreConfiguration
 
 import org.apache.commons.io.IOUtils
 import spock.lang.Specification
 
 import static java.util.stream.Collectors.toList
 
-class SyncAzureClientIT
+class AzureClientImplIT
     extends Specification
 {
   private AzureClient client
 
   def setup() {
-    def configuration = new OrientBlobStoreConfiguration(attributes: [
+    def configuration = new MockBlobStoreConfiguration(attributes: [
         (AzureBlobStore.CONFIG_KEY): [
             (AzureBlobStore.ACCOUNT_NAME_KEY)  : System.getProperty('nxrm.azure.accountName'),
             (AzureBlobStore.ACCOUNT_KEY_KEY)   : System.getProperty('nxrm.azure.accountKey'),
@@ -23,7 +23,7 @@ class SyncAzureClientIT
         ]
     ])
     client = new AzureStorageClientFactory(10000).create(configuration)
-    assert client instanceof SyncAzureClient
+    assert client instanceof AzureClientImpl
     this.client.createContainer()
   }
 
