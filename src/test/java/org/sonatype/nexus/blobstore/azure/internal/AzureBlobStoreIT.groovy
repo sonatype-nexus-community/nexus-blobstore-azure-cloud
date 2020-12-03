@@ -59,7 +59,7 @@ class AzureBlobStoreIT
         database.instanceProvider)
     deletedBlobIndex.start()
 
-    def factory = new AzureStorageClientFactory(20)
+    def factory = new AzureStorageClientFactory(20, 30, 30)
     azureClient = factory.create(configuration)
     azureBlobStore = new AzureBlobStore(factory, resolver, storeMetrics, dryRunPrefix, deletedBlobIndex)
     this.azureBlobStore.init(configuration)

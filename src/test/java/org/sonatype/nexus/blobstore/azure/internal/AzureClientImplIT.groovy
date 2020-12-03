@@ -22,7 +22,7 @@ class AzureClientImplIT
             (AzureBlobStore.CONTAINER_NAME_KEY): UUID.randomUUID().toString(),
         ]
     ])
-    client = new AzureStorageClientFactory(10000).create(configuration)
+    client = new AzureStorageClientFactory(10000, 30, 30).create(configuration)
     assert client instanceof AzureClientImpl
     this.client.createContainer()
   }
