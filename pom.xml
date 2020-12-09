@@ -90,11 +90,6 @@
 
     <dependency>
       <groupId>org.sonatype.nexus</groupId>
-      <artifactId>nexus-extdirect</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.sonatype.nexus</groupId>
       <artifactId>nexus-rapture</artifactId>
       <scope>provided</scope>
     </dependency>
@@ -114,7 +109,7 @@
     <dependency>
       <groupId>com.azure</groupId>
       <artifactId>azure-storage-blob</artifactId>
-      <version>12.8.0</version>
+      <version>12.9.0</version>
     </dependency>
 
     <dependency>
@@ -142,7 +137,7 @@
             <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
             <Export-Package>
               org.sonatype.nexus.blobstore.azure,
-              com.microsoft.azure.storage.*
+              com.azure.*
             </Export-Package>
             <Import-Package>
               *;resolution:=optional
