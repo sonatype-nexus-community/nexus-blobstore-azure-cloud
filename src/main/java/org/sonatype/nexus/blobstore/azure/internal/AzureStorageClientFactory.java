@@ -20,8 +20,7 @@ import javax.inject.Named;
 import org.sonatype.goodies.common.ComponentSupport;
 import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
 
-//import com.azure.core.http.netty.NettyAsyncHttpClientBuilder;
-import com.azure.core.http.okhttp.OkHttpAsyncHttpClientBuilder;
+import com.azure.core.http.netty.NettyAsyncHttpClientBuilder;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.common.StorageSharedKeyCredential;
@@ -61,10 +60,8 @@ public class AzureStorageClientFactory
     String containerName = blobStoreConfiguration.attributes(CONFIG_KEY).get(CONTAINER_NAME_KEY, String.class);
     StorageSharedKeyCredential credential = new StorageSharedKeyCredential(accountName, accountKey);
     String endpoint = String.format(Locale.ROOT, "https://%s.blob.core.windows.net", accountName);
-    //BlobServiceClient storageClient = new BlobServiceClientBuilder().endpoint(endpoint).credential(credential)
-    //    .httpClient(new NettyAsyncHttpClientBuilder().build()).buildClient();
     BlobServiceClient storageClient = new BlobServiceClientBuilder().endpoint(endpoint).credential(credential)
-        .httpClient(new OkHttpAsyncHttpClientBuilder().build()).buildClient();
+        .httpClient(new NettyAsyncHttpClientBuilder().build()).buildClient();
     return new AzureClientImpl(storageClient, containerName, chunkSize, copyTimeout, listBlobsTimeout);
   }
 }
