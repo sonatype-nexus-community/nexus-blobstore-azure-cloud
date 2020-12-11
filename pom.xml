@@ -138,12 +138,16 @@
             <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
             <Export-Package>
               org.sonatype.nexus.blobstore.azure,
-              com.azure.*
+              com.azure.*,
+              io.netty.*,
+              reactor.*,
+              org.codehaus.*
             </Export-Package>
             <Import-Package>
               *;resolution:=optional
             </Import-Package>
             <DynamicImport-Package>*</DynamicImport-Package>
+            <Private-Package>com.fasterxml.*</Private-Package>
             <Embed-Transitive>true</Embed-Transitive>
           </instructions>
         </configuration>
