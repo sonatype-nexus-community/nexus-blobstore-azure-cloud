@@ -12,7 +12,7 @@
     Eclipse Foundation. All other trademarks are the property of their respective owners.
 
 -->
-This repository is no longer maintained as the Azure blob storage implementation has been moved into the Repository Manager codebase as a supported feature for pro users. Upgrade to the latest version of Repository Manager to use Azure backed blob stores (Pro feature). Also, issues for this project have been disabled. To open new issues relating to Azure blob stores create a new issue in JIRA.
+This project is no longer maintained as the Azure blob storage implementation has been moved into the Repository Manager codebase as a supported feature for Pro users. Upgrade to the latest version of Repository Manager to use Azure backed blob stores (Pro feature). Also, issues for this project have been disabled. To open new issues relating to Azure blob stores create a new issue in JIRA.
 
 
 Nexus Repository Azure Blob Storage Blobstore
@@ -72,4 +72,3 @@ Remember:
 * Use this contribution at the risk tolerance that you have. 
 * There are some incomplete features and known issues.
 * Do NOT file Sonatype support tickets related to Azure blob store support
-
