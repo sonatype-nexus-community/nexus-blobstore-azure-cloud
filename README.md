@@ -12,16 +12,13 @@
     Eclipse Foundation. All other trademarks are the property of their respective owners.
 
 -->
+This project is no longer maintained as the Azure blob storage implementation has been moved into the Repository Manager codebase as a supported feature for Pro users. Upgrade to the latest version of Repository Manager to use Azure backed blob stores (Pro feature). Also, issues for this project have been disabled. To open new issues relating to Azure blob stores create a new issue in JIRA.
+
+
 Nexus Repository Azure Blob Storage Blobstore
 ==============================
+This project adds [Azure Blob Storage](https://azure.microsoft.com/en-us/services/storage/blobs/) backed blob stores to Sonatype Nexus Repository 3.16 thru 3.29.2. It allows Nexus Repository to store the components and assets in Azure Blobs instead of a local filesystem.
 
-[![Join the chat at https://gitter.im/sonatype/nexus-developers](https://badges.gitter.im/sonatype/nexus-developers.svg)](https://gitter.im/sonatype/nexus-developers?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
-This project adds [Azure Blob Storage](https://azure.microsoft.com/en-us/services/storage/blobs/) backed blob stores to Sonatype Nexus Repository 3.16 and later. It allows Nexus Repository to store the components and assets in Azure Blobs instead of a local filesystem.
-
-Contribution Guidelines
------------------------
-Go read [our contribution guidelines](/.github/CONTRIBUTING.md) to get a bit more familiar with how we would like things to flow.
 
 Requirements
 ------------
@@ -50,22 +47,16 @@ To run integration commands, activate the `it` profile and include the system pr
 `Dnxrm.azure.accountKey`. Integration tests will create temporary storage containers and tests should cleanup when 
 complete. If you're running tests often check your storage account because it is likely that some containers may be left
 behind and not properly cleanup up by the tests. 
-
+ 
      mvn clean install -P it -Dnxrm.azure.accountName=<accountName> -Dnxrm.azure.accountKey=<accountKey>
-
-
-Azure Blob Storage Permissions
---------------------------------
-TODO
-
-Azure Blob Storage Authentication
------------------------------------
-TODO
 
 
 Installation
 ------------
-While nexus is stopped, copy target/nexus-blobstore-azure-cloud-0.5.0-SNAPSHOT-shaded.jar in the deploy folder in your
+In Nexus Repository Manager 3.30.0+ Azure Blob Store support is available for Pro users.
+This plugin is not going to be updated or supported anymore. Use at your own risk.
+
+While NXRM is stopped, copy target/nexus-blobstore-azure-cloud-0.5.0-SNAPSHOT-shaded.jar in the deploy folder in your
 nexus 3 distribution. Start nexus and the plugin will be installed.
 
 Log in as admin and create a new blobstore, selecting 'Azure Cloud Storage' as the type.
@@ -73,25 +64,11 @@ Log in as admin and create a new blobstore, selecting 'Azure Cloud Storage' as t
 The Fine Print
 --------------
 
-It is worth noting that this is **NOT SUPPORTED** by Sonatype, and is a contribution of ours
+It is worth noting that this is **NOT SUPPORTED** by Sonatype, and was a contribution of ours
 to the open source community (read: you!)
 
 Remember:
 
 * Use this contribution at the risk tolerance that you have. 
 * There are some incomplete features and known issues.
-* Do NOT file Sonatype support tickets related to Azure blobstore support
-* DO file issues here on GitHub, so that the community can pitch in
-
-Phew, that was easier than I thought. Last but not least of all:
-
-Have fun creating and using this plugin and the Nexus platform, we are glad to have you here!
-
-Getting help
-------------
-
-Looking to contribute to our code but need some help? There's a few ways to get information:
-
-* Chat with us on [Gitter](https://gitter.im/sonatype/nexus-developers)
-* Check out the [Nexus3](http://stackoverflow.com/questions/tagged/nexus3) tag on Stack Overflow
-* Check out the [Nexus Repository User List](https://groups.google.com/a/glists.sonatype.com/forum/?hl=en#!forum/nexus-users)
+* Do NOT file Sonatype support or JIRA tickets related to this Azure blob store plugin
