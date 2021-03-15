@@ -71,4 +71,4 @@ Remember:
 
 * Use this contribution at the risk tolerance that you have. 
 * There are some incomplete features and known issues.
-* Do NOT file Sonatype support tickets related to Azure blob store support
+* Do NOT file Sonatype support or JIRA tickets related to this Azure blob store plugin
