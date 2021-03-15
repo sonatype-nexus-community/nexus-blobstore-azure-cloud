@@ -53,7 +53,7 @@ behind and not properly cleanup up by the tests.
 
 Installation
 ------------
-In Nexus Repository Manager 3.30.0+ Azure Blob Store support is available for pro users.
+In Nexus Repository Manager 3.30.0+ Azure Blob Store support is available for Pro users.
 This plugin is not going to be updated or supported anymore. Use at your own risk.
 
 While NXRM is stopped, copy target/nexus-blobstore-azure-cloud-0.5.0-SNAPSHOT-shaded.jar in the deploy folder in your
