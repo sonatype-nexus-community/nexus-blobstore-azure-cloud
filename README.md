@@ -17,7 +17,7 @@ This project is no longer maintained as the Azure blob storage implementation ha
 
 Nexus Repository Azure Blob Storage Blobstore
 ==============================
-This project adds [Azure Blob Storage](https://azure.microsoft.com/en-us/services/storage/blobs/) backed blob stores to Sonatype Nexus Repository 3.16 and later. It allows Nexus Repository to store the components and assets in Azure Blobs instead of a local filesystem.
+This project adds [Azure Blob Storage](https://azure.microsoft.com/en-us/services/storage/blobs/) backed blob stores to Sonatype Nexus Repository 3.16 thru 3.29.2. It allows Nexus Repository to store the components and assets in Azure Blobs instead of a local filesystem.
 
 
 Requirements
