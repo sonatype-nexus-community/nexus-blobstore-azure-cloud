@@ -64,7 +64,7 @@ Log in as admin and create a new blobstore, selecting 'Azure Cloud Storage' as t
 The Fine Print
 --------------
 
-It is worth noting that this is **NOT SUPPORTED** by Sonatype, and is a contribution of ours
+It is worth noting that this is **NOT SUPPORTED** by Sonatype, and was a contribution of ours
 to the open source community (read: you!)
 
 Remember:
