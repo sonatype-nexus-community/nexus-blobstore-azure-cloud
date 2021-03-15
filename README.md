@@ -56,7 +56,7 @@ Installation
 In Nexus Repository Manager 3.30.0+ Azure Blob Store support is available for pro users.
 This plugin is not going to be updated or supported anymore. Use at your own risk.
 
-While nexus is stopped, copy target/nexus-blobstore-azure-cloud-0.5.0-SNAPSHOT-shaded.jar in the deploy folder in your
+While NXRM is stopped, copy target/nexus-blobstore-azure-cloud-0.5.0-SNAPSHOT-shaded.jar in the deploy folder in your
 nexus 3 distribution. Start nexus and the plugin will be installed.
 
 Log in as admin and create a new blobstore, selecting 'Azure Cloud Storage' as the type.
